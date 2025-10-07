@@ -6,13 +6,23 @@ else {
 	Write-Host "Starting Docker Desktop..."
 	Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"
 	sleep 5
-	Write-Host "Docker Desktop started.`n"
+	Write-Host "Docker Desktop started."
 }
+Write-Host "`n"
 
-Write-Host "Starting Wireshark..."
-Start-Process pwsh -ArgumentList "-Command", "Start-Process 'C:\Program Files\Wireshark\Wireshark.exe'" -WindowStyle Hidden
-sleep 2
-Write-Host "Wireshark started.`n"
+# Wiresharkの起動チェック
+if (Get-Process -Name "Wireshark" -ErrorAction SilentlyContinue) {
+	# 既にWiresharkが起動している場合はスキップ
+	Write-Host "Wireshark is already running. Skipping startup."
+}
+else {
+	# Wiresharkを起動
+	Write-Host "Starting Wireshark..."
+	Start-Process pwsh -ArgumentList "-Command", "Start-Process 'C:\Program Files\Wireshark\Wireshark.exe'" -WindowStyle Hidden
+	sleep 2
+	Write-Host "Wireshark started."
+}
+Write-Host "`n"
 
 Write-Host "Opening VS Code in devcontainer..."
 Start-Process pwsh -ArgumentList "-Command", 'devcontainer open .' -WindowStyle Hidden
