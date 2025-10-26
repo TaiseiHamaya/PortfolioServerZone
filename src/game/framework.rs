@@ -1,8 +1,8 @@
+use chrono::Utc;
+use futures_ticker;
 use log;
 use std::{net::Ipv4Addr, time::Duration};
 use tokio::net::TcpListener;
-use futures_ticker;
-use chrono::Utc;
 
 use super::zone::Zone;
 
@@ -18,17 +18,20 @@ pub async fn run() {
     let mut tick_count: u64 = 0;
 
     loop {
-        let now = tokio::time::Instant::now();
         let next = tokio::time::Instant::from_std(futures_ticker.next_tick());
-        tokio::time::sleep_until(next).await;
 
         log::info!("Tick {} at {}", tick_count, Utc::now());
 
-        if next < now {
-            log::warn!("Tick is running behind schedule!");
+        zone.update().await;
+
+        let end = tokio::time::Instant::now();
+
+        tokio::time::sleep_until(next).await;
+
+        if next < end {
+            log::warn!("Tick: {} is running behind schedule! Time-\'{}ms\'", tick_count, (end - next).as_millis());
         }
 
-        zone.update().await;
         tick_count += 1;
     }
 
