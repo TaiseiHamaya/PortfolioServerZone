@@ -1,12 +1,10 @@
-FROM ubuntu:24.04
+FROM amazonlinux:2023.9.20250929.0
 
 # 開発に必要なパッケージのインストール
-RUN apt-get update && \
-    apt-get install -y curl git build-essential pkg-config libssl-dev net-tools iputils-ping
-
-# Rust インストール
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
+RUN dnf update -y && \
+    dnf install -y --allowerasing \
+    git gcc gcc-c++ make pkgconfig openssl-devel net-tools iputils \
+    rust cargo rust-src rustfmt
 
 # 作業ディレクトリ
 WORKDIR /workspace

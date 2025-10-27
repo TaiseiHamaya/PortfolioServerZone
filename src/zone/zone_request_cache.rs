@@ -1,21 +1,21 @@
 use std::mem;
 
-use crate::game::client;
+use crate::net::client;
 
-pub struct ZonePlayerLogin {
+pub struct ZonePlayerLogin<'action_list> {
     pub id: u64,
-    pub client_cluster: client::Cluster,
+    pub client_cluster: client::Cluster<'action_list>,
 }
 pub struct ZonePlayerLogout {
     pub entity_id: u64,
 }
 
-pub struct ZoneRequestChash {
-    pub login_chash: Vec<ZonePlayerLogin>,
+pub struct ZoneRequestChash<'action_list> {
+    pub login_chash: Vec<ZonePlayerLogin<'action_list>>,
     pub logout_chash: Vec<ZonePlayerLogout>,
 }
 
-impl ZoneRequestChash {
+impl<'action_list> ZoneRequestChash<'action_list> {
     pub fn new() -> Self {
         ZoneRequestChash {
             login_chash: Vec::new(),
@@ -28,7 +28,7 @@ impl ZoneRequestChash {
         self.logout_chash.clear();
     }
 
-    pub fn push_login(&mut self, client: client::Cluster) {
+    pub fn push_login(&mut self, client: client::Cluster<'action_list>) {
         self.login_chash.push(ZonePlayerLogin { id: client.id(), client_cluster: client });
     }
 
@@ -36,7 +36,7 @@ impl ZoneRequestChash {
         self.logout_chash.push(ZonePlayerLogout { entity_id: id });
     }
 
-    pub fn get_login_chash_take(&mut self) -> Vec<ZonePlayerLogin> {
+    pub fn get_login_chash_take(&mut self) -> Vec<ZonePlayerLogin<'action_list>> {
         mem::take(&mut self.login_chash)
     }
 

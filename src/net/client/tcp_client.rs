@@ -4,7 +4,6 @@ use std::{
     net::SocketAddr,
     sync::Arc,
 };
-
 use log;
 use protobuf::Serialize;
 use tokio::{
@@ -17,13 +16,15 @@ use tokio::{
 
 use super::receive_buffer;
 
+use crate::net::proto;
+
 pub struct TcpClient {
     recv_stream: OwnedReadHalf,
     send_stream: OwnedWriteHalf,
     addr: SocketAddr,
 
-    recv_messages: Vec<crate::proto::Packet>,
-    send_messages: LinkedList<crate::proto::Packet>,
+    recv_messages: Vec<proto::Packet>,
+    send_messages: LinkedList<proto::Packet>,
 
     recv_buffer: receive_buffer::ReceiveBuffer,
     error_counter: Arc<Mutex<u32>>,
@@ -47,7 +48,7 @@ impl TcpClient {
         }
     }
 
-    pub fn stack_packet(&mut self, packet: crate::proto::Packet) {
+    pub fn stack_packet(&mut self, packet: proto::Packet) {
         self.send_messages.push_back(packet);
     }
 
@@ -155,7 +156,7 @@ impl TcpClient {
         false // No error, keep the connection open
     }
 
-    pub fn into_recv_messages(&mut self) -> Vec<crate::proto::Packet> {
+    pub fn into_recv_messages(&mut self) -> Vec<proto::Packet> {
         let result = std::mem::take(&mut self.recv_messages);
         return result;
     }
