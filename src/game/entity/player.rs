@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use chrono;
+use chrono::{self, DateTime};
 use nalgebra::Point3;
 use rand::{self, Rng};
 
@@ -47,19 +47,28 @@ impl Entity for Player<'_> {
         self.id.id()
     }
 
-    fn play_action(&mut self, action_id: u32, play_utc: &chrono::DateTime<chrono::Utc>) -> Result<PlayActionOk, PlayActionError> {
-        let recent_time = self.action_recent_time.get_mut(&action_id);
-        // アクションがタイマーに存在しない場合
-        if recent_time.is_none() {
-            return Err(PlayActionError::ActionNotFoundTimer);
-        }
-        let recent_time = recent_time.unwrap();
+    fn play_action(
+        &mut self,
+        action_id: u32,
+        play_utc: &chrono::DateTime<chrono::Utc>,
+    ) -> Result<PlayActionOk, PlayActionError> {
         let action = self.action_list.get_action_by_id(action_id);
         if action.is_none() {
             // アクションがアクションリストに存在しない場合
             return Err(PlayActionError::ActionNotFoundFromList);
         }
         let action = action.unwrap();
+        let action_id = if action.action_type() == action::action::ActionType::WEAPONSKILL {
+            0u32
+        } else {
+            action_id
+        };
+        let recent_time = self.action_recent_time.get_mut(&action_id);
+        // アクションがタイマーに存在しない場合
+        if recent_time.is_none() {
+            return Err(PlayActionError::ActionNotFoundTimer);
+        }
+        let recent_time = recent_time.unwrap();
         // クールタイム中の場合
         if *recent_time + action.recast_time() > *play_utc {
             return Err(PlayActionError::ActionRecastTime);
@@ -78,6 +87,19 @@ impl<'action_list> Player<'action_list> {
         hitpoint: i32,
         action_list: &'action_list action::action_list::ActionList,
     ) -> Self {
+        let mut action_recent_time = HashMap::new();
+        action_recent_time.insert(0, DateTime::<chrono::Utc>::MIN_UTC); // WeaponSkill用
+        for action_id in 0..action_list.len() as u32 {
+            let action = action_list.get_action_by_id(action_id);
+            if action.is_none() {
+                continue;
+            }
+            let action = action.unwrap();
+            if action.action_type() == action::action::ActionType::UNSPECIFIED {
+                continue;
+            }
+            action_recent_time.insert(action_id, DateTime::<chrono::Utc>::MIN_UTC);
+        }
         Player {
             id: EntityId::new(id),
             position,
@@ -85,7 +107,7 @@ impl<'action_list> Player<'action_list> {
             hitpoint,
             current_action_id: None,
             action_list,
-            action_recent_time: HashMap::new(),
+            action_recent_time,
         }
     }
 }

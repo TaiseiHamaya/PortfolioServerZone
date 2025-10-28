@@ -53,6 +53,23 @@ impl CommandTrait for ChatBroadcastCommand {
     }
 }
 
+pub struct BeginActionCommand {
+    id: u64,
+    action_id: u32,
+}
+
+impl BeginActionCommand {
+    pub fn new(id: u64, action_id: u32) -> Self {
+        BeginActionCommand { id, action_id }
+    }
+}
+
+impl CommandTrait for BeginActionCommand {
+    fn execute(&self, zone: &mut zone::Zone) {
+        zone.begin_entity_action(self.id, self.action_id);
+    }
+}
+
 pub struct DamagedEntityCommand {
     attacker_id: u64,
     target_id: u64,

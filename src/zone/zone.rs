@@ -10,8 +10,6 @@ use protobuf::*;
 
 use super::{zone_request_cache::ZoneRequestChash, command::CommandTrait};
 
-use crate::game::contents::containts_director;
-use crate::net::proto::packet;
 use crate::{
     game::{
         action::action_list_table,
@@ -310,6 +308,24 @@ impl<'action_list> Zone<'action_list> {
         });
     }
 
+    pub fn begin_entity_action(&mut self, id: u64, action_id: u32) {
+        log::info!("Entity {} begins action {}.", id, action_id);
+        let mut packet = proto::Packet::new();
+        packet.set_category_sync_message(proto::CategorySyncMessage::PlayAction);
+        let mut body = proto::PayloadPlayAction::new();
+        body.set_id(id);
+        body.set_action_id(action_id);
+        let payload = body.serialize();
+        if payload.is_err() {
+            return;
+        }
+        packet.set_payload(payload.unwrap());
+        // クライアントに通知
+        self.players.iter_mut().for_each(|(_, cluster)| {
+            cluster.stack_packet(packet.clone());
+        });
+    }
+
     pub fn entity_damaged(&mut self, attacker_id: u64, target_id: u64, damage: i32) {
         log::info!(
             "Entity {} damaged entity {} for {} points.",
@@ -347,7 +363,7 @@ impl<'action_list> Zone<'action_list> {
         packet.set_category_enemy_message(proto::CategoryEnemyMessage::EnemySpawn);
         let mut body = proto::PayloadEnemySpawn::new();
         body.set_id(entity_id);
-        body.set_name("Testcase");
+        body.set_name("RedComet");
         let mut position = proto::Vector3::new();
         position.set_x(0.0);
         position.set_y(0.0);

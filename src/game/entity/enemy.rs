@@ -18,7 +18,7 @@ impl Enemy {
     pub fn new(id: u64, position: Point3<f32>, radius: f32) -> Self {
         Enemy {
             id: EntityId::new(id),
-            name: format!("Enemy_{}", id),
+            name: "RedComet".to_string(),
             hitpoint: 10000,
             position,
             radius,

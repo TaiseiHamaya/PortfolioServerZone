@@ -13,6 +13,10 @@ impl ActionList {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.actions.len()
+    }
+
     pub fn get_action_by_id(&self, action_id: u32) -> Option<&action::EntityAction> {
         self.actions.get(action_id as usize)
     }

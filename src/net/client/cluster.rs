@@ -101,6 +101,12 @@ impl<'action_list> Cluster<'action_list> {
                             match action.unwrap() {
                                 PlayActionOk::Damage(dmg) => {
                                     self.command_buffers.push(Box::new(
+                                        command::BeginActionCommand::new(
+                                            self.player.id(),
+                                            action_id,
+                                        ),
+                                    ));
+                                    self.command_buffers.push(Box::new(
                                         command::DamagedEntityCommand::new(
                                             self.player.id(),
                                             target_id,

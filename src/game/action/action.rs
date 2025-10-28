@@ -5,13 +5,15 @@ pub struct ActionAcquired {
     level: u32,
 }
 
-enum ActionType {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ActionType {
     UNSPECIFIED,
     WEAPONSKILL,
     ABILITY,
     SPELL,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum TargetType {
     MySelf,
     Player,
@@ -45,7 +47,7 @@ impl EntityAction {
     pub fn new() -> Self {
         EntityAction {
             id: 0,
-            name: "Holy Spirit".to_string(),
+            name: "HolySpirit".to_string(),
             acquired: ActionAcquired {
                 job_name: "Paladin".to_string(),
                 level: 64,
@@ -66,6 +68,10 @@ impl EntityAction {
 
     pub fn recast_time(&self) -> chrono::TimeDelta {
         self.recast
+    }
+
+    pub fn action_type(&self) -> ActionType {
+        self.action_type
     }
 }
 
