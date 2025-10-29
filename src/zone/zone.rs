@@ -8,7 +8,7 @@ use tokio::net::TcpListener;
 use nalgebra::Point3;
 use protobuf::*;
 
-use super::{zone_request_cache::ZoneRequestChash, command::CommandTrait};
+use super::{command::CommandTrait, zone_request_cache::ZoneRequestChash};
 
 use crate::{
     game::{
@@ -165,50 +165,59 @@ impl<'action_list> Zone<'action_list> {
     // プレイヤー追加
     fn add_client_accepted(&mut self) {
         let login_chash = self.zone_request_chash.get_login_chash_take();
-        login_chash.into_iter().for_each(|mut login: super::zone_request_cache::ZonePlayerLogin<'_>| {
-            // 接続完了通知
-            login.client_cluster.on_accepted();
-            // 既存プレイヤーの情報を送信
-            self.players.iter_mut().for_each(|(id, cluster)| {
-                let mut packet = proto::Packet::new();
-                packet.set_category_login_message(proto::CategoryLoginMessage::LoginNotification);
-                let mut body = proto::PayloadLoginNotification::new();
-                body.set_id(*id);
-                body.set_username(cluster.player_name().clone());
-                let mut position = proto::Vector3::new();
-                let cluster_position = cluster.player().position();
-                position.set_x(cluster_position.x);
-                position.set_y(cluster_position.y);
-                position.set_z(cluster_position.z);
-                body.set_position(position);
-                packet.set_payload(body.serialize().unwrap());
-                // パケットを積む
-                login.client_cluster.stack_packet(packet);
-            });
-            // 敵のスポーン情報を送信
-            self.containts_directors[0].get_enemies_mut().iter().for_each(|(_, enemy)| {
-                let mut packet = proto::Packet::new();
-                packet.set_category_enemy_message(proto::CategoryEnemyMessage::EnemySpawn);
-                let mut body = proto::PayloadEnemySpawn::new();
-                body.set_id(enemy.id());
-                body.set_name(enemy.get_name().clone());
-                let mut position = proto::Vector3::new();
-                let enemy_position = enemy.position();
-                position.set_x(enemy_position.x);
-                position.set_y(enemy_position.y);
-                position.set_z(enemy_position.z);
-                body.set_position(position);
-                let payload = body.serialize();
-                if payload.is_err() {
-                    log::error!("Failed to serialize enemy spawn packet: {}", payload.unwrap_err());
-                    return;
-                }
-                packet.set_payload(payload.unwrap());
-                login.client_cluster.stack_packet(packet);
-            });
-            // プレイヤーリストに追加
-            self.players.insert(login.id, login.client_cluster);
-        });
+        login_chash.into_iter().for_each(
+            |mut login: super::zone_request_cache::ZonePlayerLogin<'_>| {
+                // 接続完了通知
+                login.client_cluster.on_accepted();
+                // 既存プレイヤーの情報を送信
+                self.players.iter_mut().for_each(|(id, cluster)| {
+                    let mut packet = proto::Packet::new();
+                    packet
+                        .set_category_login_message(proto::CategoryLoginMessage::LoginNotification);
+                    let mut body = proto::PayloadLoginNotification::new();
+                    body.set_id(*id);
+                    body.set_username(cluster.player_name().clone());
+                    let mut position = proto::Vector3::new();
+                    let cluster_position = cluster.player().position();
+                    position.set_x(cluster_position.x);
+                    position.set_y(cluster_position.y);
+                    position.set_z(cluster_position.z);
+                    body.set_position(position);
+                    packet.set_payload(body.serialize().unwrap());
+                    // パケットを積む
+                    login.client_cluster.stack_packet(packet);
+                });
+                // 敵のスポーン情報を送信
+                self.containts_directors[0]
+                    .get_enemies_mut()
+                    .iter()
+                    .for_each(|(_, enemy)| {
+                        let mut packet = proto::Packet::new();
+                        packet.set_category_enemy_message(proto::CategoryEnemyMessage::EnemySpawn);
+                        let mut body = proto::PayloadEnemySpawn::new();
+                        body.set_id(enemy.id());
+                        body.set_name(enemy.get_name().clone());
+                        let mut position = proto::Vector3::new();
+                        let enemy_position = enemy.position();
+                        position.set_x(enemy_position.x);
+                        position.set_y(enemy_position.y);
+                        position.set_z(enemy_position.z);
+                        body.set_position(position);
+                        let payload = body.serialize();
+                        if payload.is_err() {
+                            log::error!(
+                                "Failed to serialize enemy spawn packet: {}",
+                                payload.unwrap_err()
+                            );
+                            return;
+                        }
+                        packet.set_payload(payload.unwrap());
+                        login.client_cluster.stack_packet(packet);
+                    });
+                // プレイヤーリストに追加
+                self.players.insert(login.id, login.client_cluster);
+            },
+        );
     }
 
     fn execute_client_commands(&mut self) {
@@ -334,7 +343,10 @@ impl<'action_list> Zone<'action_list> {
             damage
         );
         // ダメージ処理
-        if let Some(enemy) = self.containts_directors[0].get_enemies_mut().get_mut(&target_id) {
+        if let Some(enemy) = self.containts_directors[0]
+            .get_enemies_mut()
+            .get_mut(&target_id)
+        {
             enemy.on_damaged(damage);
 
             // ダメージ通知パケットを作成
@@ -346,7 +358,10 @@ impl<'action_list> Zone<'action_list> {
             body.set_damage(damage);
             let payload = body.serialize();
             if payload.is_err() {
-                log::error!("Failed to serialize damage notification packet: {}", payload.unwrap_err());
+                log::error!(
+                    "Failed to serialize damage notification packet: {}",
+                    payload.unwrap_err()
+                );
                 return;
             }
             packet.set_payload(payload.unwrap());
@@ -371,7 +386,10 @@ impl<'action_list> Zone<'action_list> {
         body.set_position(position);
         let payload = body.serialize();
         if payload.is_err() {
-            log::error!("Failed to serialize enemy spawn packet: {}", payload.unwrap_err());
+            log::error!(
+                "Failed to serialize enemy spawn packet: {}",
+                payload.unwrap_err()
+            );
             return;
         }
         packet.set_payload(payload.unwrap());

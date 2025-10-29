@@ -1,7 +1,7 @@
 use chrono::Utc;
-use ticktock;
 use log;
 use std::{net::Ipv4Addr, time::Duration};
+use ticktock;
 use tokio::net::TcpListener;
 
 use super::tick_time;
@@ -19,11 +19,15 @@ pub async fn run() {
     let action_list_table = action_list_table::ActionListTable::load_from_database();
 
     // Zoneの生成と初期化
-    let mut zone = Zone::new("TestZone".to_string(), tcp_listener.unwrap(), &action_list_table);
+    let mut zone = Zone::new(
+        "TestZone".to_string(),
+        tcp_listener.unwrap(),
+        &action_list_table,
+    );
     zone.initialize().await;
     let tick_duration = chrono::TimeDelta::from_std(Duration::from_millis(50)).unwrap();
     let ticktock = ticktock::Clock::new(tick_duration.to_std().unwrap());
- 
+
     for (tick, _) in ticktock.iter() {
         tick_time::update_tick_time();
 
@@ -35,9 +39,13 @@ pub async fn run() {
         let end = chrono::Utc::now();
 
         if end - tick_time > tick_duration {
-            log::warn!("Tick {} is running behind schedule! Time-'{}ms'", tick, (end - tick_time).to_std().unwrap().as_millis());
+            log::warn!(
+                "Tick {} is running behind schedule! Time-'{}ms'",
+                tick,
+                (end - tick_time).to_std().unwrap().as_millis()
+            );
         }
-       }
+    }
 
     // 終了処理
 }

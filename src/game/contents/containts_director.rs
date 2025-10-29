@@ -21,7 +21,8 @@ impl ContaintsDirector {
 
     pub fn spawn_enemy(&mut self, entity_id: u64) {
         let enemy = Enemy::new(entity_id, nalgebra::Point3::new(0.0, 0.0, 8.0), 1.0);
-        self.commands.push(Box::new(SpawnEnemyCommand::new(enemy.id())));
+        self.commands
+            .push(Box::new(SpawnEnemyCommand::new(enemy.id())));
         self.enemies.insert(enemy.id(), enemy);
     }
 

@@ -7,12 +7,8 @@ pub struct ActionListTable {
 impl ActionListTable {
     pub fn load_from_database() -> Self {
         let mut action_lists = Vec::new();
-        action_lists.push(
-            action_list::ActionList::new()
-        );
-        ActionListTable {
-            action_lists
-        }
+        action_lists.push(action_list::ActionList::new());
+        ActionListTable { action_lists }
     }
 
     pub fn get_action_list(&self, job_id: u32) -> Option<&action_list::ActionList> {

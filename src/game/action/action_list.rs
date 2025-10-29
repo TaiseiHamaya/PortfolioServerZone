@@ -8,9 +8,7 @@ impl ActionList {
     pub fn new() -> Self {
         let mut actions = Vec::new();
         actions.push(action::EntityAction::new());
-        ActionList {
-            actions
-        }
+        ActionList { actions }
     }
 
     pub fn len(&self) -> usize {

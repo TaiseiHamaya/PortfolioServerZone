@@ -3,7 +3,7 @@ use protobuf::ClearAndParse;
 use crate::net::proto;
 
 pub struct ReceiveBuffer {
-    recived_size_byte: u32,
+    recived_header_byte: u32,
     size: u32,
     body: Vec<u8>,
 }
@@ -11,7 +11,7 @@ pub struct ReceiveBuffer {
 impl ReceiveBuffer {
     pub fn new() -> Self {
         ReceiveBuffer {
-            recived_size_byte: 0,
+            recived_header_byte: 0,
             size: 0,
             body: Vec::new(),
         }
@@ -38,7 +38,7 @@ impl ReceiveBuffer {
                     result.push(temp);
                 }
                 self.body.clear();
-                self.recived_size_byte = 0;
+                self.recived_header_byte = 0;
                 self.size = 0;
             }
         }
@@ -48,18 +48,18 @@ impl ReceiveBuffer {
     fn read_length_header(&mut self, packet: &mut Vec<u8>) -> bool {
         let sizeof_u32 = std::mem::size_of::<u32>() as u32;
         let sizeof_u8 = std::mem::size_of::<u8>() as u32;
-        if self.recived_size_byte >= sizeof_u32 {
+        if self.recived_header_byte >= sizeof_u32 {
             return true;
         }
 
-        let needed = sizeof_u32 - self.recived_size_byte;
-        let to_read = std::cmp::min(needed, packet.len() as u32) as usize;
-        self.size |= (packet
+        let needed = (sizeof_u32 - self.recived_header_byte) as usize;
+        let to_read = std::cmp::min(needed, packet.len());
+        self.size |= packet
             .drain(0..to_read)
-            .fold(0u32, |acc, b| (acc << 8) | b as u32))
-            << (self.recived_size_byte * sizeof_u8);
-        self.recived_size_byte += to_read as u32;
+            .fold(0u32, |acc, val| (acc << 8) | val as u32)
+            << (self.recived_header_byte * sizeof_u8);
+        self.recived_header_byte += to_read as u32;
 
-        return self.recived_size_byte >= sizeof_u32;
+        return self.recived_header_byte >= sizeof_u32;
     }
 }

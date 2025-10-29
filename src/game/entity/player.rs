@@ -75,6 +75,7 @@ impl Entity for Player<'_> {
         }
 
         *recent_time = *play_utc;
+        self.current_action_id = Some(action_id);
         let mut rng = rand::rng();
         Ok(PlayActionOk::Damage(rng.random_range(900..1100)))
     }

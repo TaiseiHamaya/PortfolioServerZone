@@ -1,11 +1,11 @@
+use log;
+use protobuf::Serialize;
 use std::{
     collections::LinkedList,
     io::{ErrorKind, IoSlice},
     net::SocketAddr,
     sync::Arc,
 };
-use log;
-use protobuf::Serialize;
 use tokio::{
     net::{
         TcpStream,
@@ -117,8 +117,7 @@ impl TcpClient {
             let error_kind = error.kind();
             if error_kind == ErrorKind::WouldBlock {
                 // 読み取るデータがない
-            }
-            else {
+            } else {
                 log::error!("Failed to receive data: {:?}", error);
                 let error_count = self.error_counter.try_lock();
                 if error_count.is_err() {

@@ -78,7 +78,11 @@ pub struct DamagedEntityCommand {
 
 impl DamagedEntityCommand {
     pub fn new(attacker_id: u64, target_id: u64, damage: i32) -> Self {
-        DamagedEntityCommand { attacker_id, target_id, damage }
+        DamagedEntityCommand {
+            attacker_id,
+            target_id,
+            damage,
+        }
     }
 }
 
