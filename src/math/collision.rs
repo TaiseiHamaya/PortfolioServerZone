@@ -1,4 +1,4 @@
-use crate::entity::entity::Entity;
+use crate::game::entity::entity::Entity;
 use nalgebra::Point3;
 
 pub fn is_hit_entity<T>(entity: T, pos: Point3<f32>) -> bool 

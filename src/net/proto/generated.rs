@@ -10,3 +10,9 @@ pub mod internal_do_not_use_math;
 
 #[allow(unused_imports, nonstandard_style)]
 pub use internal_do_not_use_math::*;
+#[path="action.u.pb.rs"]
+#[allow(nonstandard_style)]
+pub mod internal_do_not_use_action;
+
+#[allow(unused_imports, nonstandard_style)]
+pub use internal_do_not_use_action::*;

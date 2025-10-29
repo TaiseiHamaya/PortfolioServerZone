@@ -6,40 +6,61 @@ use log;
 use tokio::net::TcpListener;
 
 use nalgebra::Point3;
-
-use super::client::TcpClient;
-use super::zone_request_chash::ZoneRequestChash;
-use crate::contents::containts_director::ContaintsDirector;
-use crate::entity::entity::Entity;
-use crate::entity::player::Player;
-
-use crate::game::client::{self, CommandTrait};
-use crate::proto::{self, *};
 use protobuf::*;
 
-pub struct Zone {
+use super::{zone_request_cache::ZoneRequestChash, command::CommandTrait};
+
+use crate::{
+    game::{
+        action::action_list_table,
+        contents::containts_director::ContaintsDirector,
+        entity::{entity::Entity, player::Player},
+    },
+    net::{
+        client::{self, TcpClient},
+        proto,
+    },
+};
+
+pub struct Zone<'action_list> {
     name: String,
-    players: HashMap<u64, client::Cluster>,
+    next_use_entity_id: u64,
+    players: HashMap<u64, client::Cluster<'action_list>>,
 
     containts_directors: Vec<ContaintsDirector>,
 
     tcp_listener: TcpListener,
 
-    zone_request_chash: ZoneRequestChash,
+    actions_list_table: &'action_list action_list_table::ActionListTable,
+    zone_request_chash: ZoneRequestChash<'action_list>,
 }
 
-impl Zone {
-    pub fn new(name: String, listner: TcpListener) -> Self {
+impl<'action_list> Zone<'action_list> {
+    pub fn new(
+        name: String,
+        listner: TcpListener,
+        actions_list_table: &'action_list action_list_table::ActionListTable,
+    ) -> Self {
         Zone {
             name,
+            next_use_entity_id: 0,
             players: HashMap::new(),
 
             containts_directors: Vec::new(),
 
             tcp_listener: listner,
 
+            actions_list_table,
             zone_request_chash: ZoneRequestChash::new(),
         }
+    }
+
+    pub async fn initialize(&mut self) {
+        // コンテンツディレクターの初期化
+        let mut director = ContaintsDirector::new();
+        director.spawn_enemy(self.next_use_entity_id);
+        self.next_use_entity_id += 1;
+        self.containts_directors.push(director);
     }
 
     pub async fn update(&mut self) {
@@ -96,11 +117,17 @@ impl Zone {
             Poll::Ready(Ok((stream, addr))) => {
                 // 後でDB接続に変える
                 log::info!("Accepted connection from {}", addr);
-                let player_id = self.players.len() as u64;
+                let player_id = self.next_use_entity_id;
+                self.next_use_entity_id += 1;
                 let player_name = format!("Player{}", player_id);
 
                 let position = Point3::new(0.0, 0.0, 0.0); // 初期位置は(0, 0, 0)
-                let player = Player::new(player_id, position, 10000);
+                let player = Player::new(
+                    player_id,
+                    position,
+                    10000,
+                    self.actions_list_table.get_action_list(0).unwrap(),
+                );
                 let client_cluster =
                     client::Cluster::new(player, player_name.clone(), TcpClient::new(stream, addr));
 
@@ -108,9 +135,11 @@ impl Zone {
                 self.zone_request_chash.push_login(client_cluster);
 
                 // 既存プレイヤーに通知するパケットを作成
-                let mut notify_packet = crate::proto::Packet::new();
-                notify_packet.set_loginPacketType(crate::proto::LoginPacketType::Loginnotification); // パケットタイプ
-                let mut payload: LoginNotificationBody = crate::proto::LoginNotificationBody::new();
+                let mut notify_packet = proto::Packet::new();
+                notify_packet
+                    .set_category_login_message(proto::CategoryLoginMessage::LoginNotification); // パケットタイプ
+                let mut payload: proto::PayloadLoginNotification =
+                    proto::PayloadLoginNotification::new();
                 payload.set_id(player_id);
                 payload.set_username(player_name);
                 notify_packet.set_payload(payload.serialize().unwrap()); // 中身
@@ -136,14 +165,14 @@ impl Zone {
     // プレイヤー追加
     fn add_client_accepted(&mut self) {
         let login_chash = self.zone_request_chash.get_login_chash_take();
-        login_chash.into_iter().for_each(|mut login| {
+        login_chash.into_iter().for_each(|mut login: super::zone_request_cache::ZonePlayerLogin<'_>| {
             // 接続完了通知
             login.client_cluster.on_accepted();
-            // 接続したクライアントに既存プレイヤーの情報を送信
+            // 既存プレイヤーの情報を送信
             self.players.iter_mut().for_each(|(id, cluster)| {
-                let mut packet = crate::proto::Packet::new();
-                packet.set_loginPacketType(LoginPacketType::Loginnotification);
-                let mut body = LoginNotificationBody::new();
+                let mut packet = proto::Packet::new();
+                packet.set_category_login_message(proto::CategoryLoginMessage::LoginNotification);
+                let mut body = proto::PayloadLoginNotification::new();
                 body.set_id(*id);
                 body.set_username(cluster.player_name().clone());
                 let mut position = proto::Vector3::new();
@@ -154,6 +183,27 @@ impl Zone {
                 body.set_position(position);
                 packet.set_payload(body.serialize().unwrap());
                 // パケットを積む
+                login.client_cluster.stack_packet(packet);
+            });
+            // 敵のスポーン情報を送信
+            self.containts_directors[0].get_enemies_mut().iter().for_each(|(_, enemy)| {
+                let mut packet = proto::Packet::new();
+                packet.set_category_enemy_message(proto::CategoryEnemyMessage::EnemySpawn);
+                let mut body = proto::PayloadEnemySpawn::new();
+                body.set_id(enemy.id());
+                body.set_name(enemy.get_name().clone());
+                let mut position = proto::Vector3::new();
+                let enemy_position = enemy.position();
+                position.set_x(enemy_position.x);
+                position.set_y(enemy_position.y);
+                position.set_z(enemy_position.z);
+                body.set_position(position);
+                let payload = body.serialize();
+                if payload.is_err() {
+                    log::error!("Failed to serialize enemy spawn packet: {}", payload.unwrap_err());
+                    return;
+                }
+                packet.set_payload(payload.unwrap());
                 login.client_cluster.stack_packet(packet);
             });
             // プレイヤーリストに追加
@@ -190,10 +240,10 @@ impl Zone {
         // 要求を受けたクライアントに切断パケットを送信
         {
             if let Some(cluster) = self.players.get_mut(player_id) {
-                let mut packet = crate::proto::Packet::new();
-                packet.set_logoutPacketType(crate::proto::LogoutPacketType::Logoutresponse);
-                let mut body = crate::proto::LogoutResponseBody::new();
-                body.set_isSuccessed(true);
+                let mut packet = proto::Packet::new();
+                packet.set_category_logout_message(proto::CategoryLogoutMessage::LogoutResponse);
+                let mut body = proto::PayloadLogoutResponse::new();
+                body.set_is_successed(true);
                 let payload = body.serialize();
                 if payload.is_ok() {
                     packet.set_payload(payload.unwrap());
@@ -204,9 +254,9 @@ impl Zone {
 
         // その他のクライアントにログアウト通知パケットを送信
         {
-            let mut packet = crate::proto::Packet::new();
-            packet.set_logoutPacketType(crate::proto::LogoutPacketType::Logoutnotification);
-            let mut body = crate::proto::LogoutNotificationBody::new();
+            let mut packet = proto::Packet::new();
+            packet.set_category_logout_message(proto::CategoryLogoutMessage::LogoutNotification);
+            let mut body = proto::PayloadLogoutNotification::new();
             body.set_id(*player_id);
             let payload = body.serialize();
             if payload.is_ok() {
@@ -226,9 +276,9 @@ impl Zone {
 
         // 既存プレイヤーに通知するパケットを作成
         {
-            let mut packet = crate::proto::Packet::new();
-            packet.set_logoutPacketType(crate::proto::LogoutPacketType::Logoutnotification);
-            let mut body = crate::proto::LogoutNotificationBody::new();
+            let mut packet = proto::Packet::new();
+            packet.set_category_logout_message(proto::CategoryLogoutMessage::LogoutNotification);
+            let mut body = proto::PayloadLogoutNotification::new();
             body.set_id(*player_id);
             let payload = body.serialize();
             if payload.is_ok() {
@@ -243,13 +293,85 @@ impl Zone {
     // チャットメッセージを全員に送信
     pub fn broadcast_chat_message(&mut self, id: u64, message: &str) {
         log::info!("Broadcasting chat message from {}: {}", id, message);
-        let mut packet = crate::proto::Packet::new();
-        packet.set_textMessageType(crate::proto::TextMessageType::Messagechatreceive);
-        let mut body = crate::proto::ChatMessageBody::new();
+        let mut packet = proto::Packet::new();
+        packet.set_category_text_message(proto::CategoryTextMessage::ChatReceive);
+        let mut body = proto::PayloadTextMessage::new();
         body.set_id(id);
         body.set_message(message.to_string());
         let payload = body.serialize();
         if payload.is_err() {
+            return;
+        }
+        packet.set_payload(payload.unwrap());
+        self.players.iter_mut().for_each(|(_, cluster)| {
+            cluster.stack_packet(packet.clone());
+        });
+    }
+
+    pub fn begin_entity_action(&mut self, id: u64, action_id: u32) {
+        log::info!("Entity {} begins action {}.", id, action_id);
+        let mut packet = proto::Packet::new();
+        packet.set_category_sync_message(proto::CategorySyncMessage::PlayAction);
+        let mut body = proto::PayloadPlayAction::new();
+        body.set_id(id);
+        body.set_action_id(action_id);
+        let payload = body.serialize();
+        if payload.is_err() {
+            return;
+        }
+        packet.set_payload(payload.unwrap());
+        // クライアントに通知
+        self.players.iter_mut().for_each(|(_, cluster)| {
+            cluster.stack_packet(packet.clone());
+        });
+    }
+
+    pub fn entity_damaged(&mut self, attacker_id: u64, target_id: u64, damage: i32) {
+        log::info!(
+            "Entity {} damaged entity {} for {} points.",
+            attacker_id,
+            target_id,
+            damage
+        );
+        // ダメージ処理
+        if let Some(enemy) = self.containts_directors[0].get_enemies_mut().get_mut(&target_id) {
+            enemy.on_damaged(damage);
+
+            // ダメージ通知パケットを作成
+            let mut packet = proto::Packet::new();
+            packet.set_category_sync_message(proto::CategorySyncMessage::EntityDamaged);
+            let mut body: proto::PayloadEntityDamaged = proto::PayloadEntityDamaged::new();
+            body.set_attacker_id(attacker_id);
+            body.set_target_id(target_id);
+            body.set_damage(damage);
+            let payload = body.serialize();
+            if payload.is_err() {
+                log::error!("Failed to serialize damage notification packet: {}", payload.unwrap_err());
+                return;
+            }
+            packet.set_payload(payload.unwrap());
+            self.players.iter_mut().for_each(|(_, cluster)| {
+                cluster.stack_packet(packet.clone());
+            });
+        }
+    }
+
+    pub fn spawn_enemy(&mut self, entity_id: u64) {
+        // クライアント通知
+        log::info!("Spawning enemy with ID {}.", entity_id);
+        let mut packet = proto::Packet::new();
+        packet.set_category_enemy_message(proto::CategoryEnemyMessage::EnemySpawn);
+        let mut body = proto::PayloadEnemySpawn::new();
+        body.set_id(entity_id);
+        body.set_name("RedComet");
+        let mut position = proto::Vector3::new();
+        position.set_x(0.0);
+        position.set_y(0.0);
+        position.set_z(0.0);
+        body.set_position(position);
+        let payload = body.serialize();
+        if payload.is_err() {
+            log::error!("Failed to serialize enemy spawn packet: {}", payload.unwrap_err());
             return;
         }
         packet.set_payload(payload.unwrap());
@@ -277,12 +399,12 @@ impl Zone {
 
     // 位置の同期をクライアントに通知
     pub fn sync_entity_transform(&mut self, entity_id: u64, timestamp: u64, position: Point3<f32>) {
-        let mut packet = crate::proto::Packet::new();
-        packet.set_syncPacketType(crate::proto::SyncPacketType::Synctransform);
-        let mut body = crate::proto::TransformSyncBody::new();
+        let mut packet = proto::Packet::new();
+        packet.set_category_sync_message(proto::CategorySyncMessage::SyncTransform);
+        let mut body = proto::PayloadTransformSync::new();
         body.set_id(entity_id);
         body.set_timestamp(timestamp);
-        let mut pos = crate::proto::Vector3::new();
+        let mut pos = proto::Vector3::new();
         pos.set_x(position.x);
         pos.set_y(position.y);
         pos.set_z(position.z);

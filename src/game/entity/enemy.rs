@@ -1,9 +1,12 @@
+use chrono;
 use nalgebra::Point3;
-use super::entity::Entity;
+
+use super::entity::{Entity, PlayActionError, PlayActionOk};
 use super::entity_id::EntityId;
 
 pub struct Enemy {
     id: EntityId,
+    name: String,
     position: Point3<f32>,
     hitpoint: i32,
     radius: f32,
@@ -15,6 +18,7 @@ impl Enemy {
     pub fn new(id: u64, position: Point3<f32>, radius: f32) -> Self {
         Enemy {
             id: EntityId::new(id),
+            name: "RedComet".to_string(),
             hitpoint: 10000,
             position,
             radius,
@@ -24,6 +28,10 @@ impl Enemy {
 
     pub fn get_hate_list(&self) -> &Vec<u64> {
         &self.hate_list
+    }
+
+    pub fn get_name(&self) -> &String {
+        &self.name
     }
 }
 
@@ -39,7 +47,7 @@ impl Entity for Enemy {
             return;
         }
     }
-    
+
     fn position(&self) -> &Point3<f32> {
         &self.position
     }
@@ -54,5 +62,13 @@ impl Entity for Enemy {
 
     fn id(&self) -> u64 {
         self.id.id()
+    }
+
+    fn play_action(
+        &mut self,
+        action_id: u32,
+        play_utc: &chrono::DateTime<chrono::Utc>,
+    ) -> Result<PlayActionOk, PlayActionError> {
+        Ok(PlayActionOk::Damage(0))
     }
 }

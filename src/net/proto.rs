@@ -11,3 +11,10 @@ mod proto_math;
 
 #[allow(unused_imports, nonstandard_style)]
 pub use proto_math::*;
+
+#[path = "proto/action.u.pb.rs"]
+#[allow(nonstandard_style, mismatched_lifetime_syntaxes)]
+mod proto_action;
+
+#[allow(unused_imports, nonstandard_style)]
+pub use proto_action::*;

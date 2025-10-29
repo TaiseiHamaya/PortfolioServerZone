@@ -1,5 +1,6 @@
-use crate::proto;
 use protobuf::ClearAndParse;
+
+use crate::net::proto;
 
 pub struct ReceiveBuffer {
     recived_size_byte: u32,
@@ -31,7 +32,7 @@ impl ReceiveBuffer {
 
             if self.size == 0 {
                 // パケット読み込み完了
-                let mut temp = crate::proto::Packet::new();
+                let mut temp = proto::Packet::new();
                 let res = temp.clear_and_parse(&self.body);
                 if res.is_ok() {
                     result.push(temp);
