@@ -29,7 +29,10 @@ impl<'action_list> ZoneRequestChash<'action_list> {
     }
 
     pub fn push_login(&mut self, client: client::Cluster<'action_list>) {
-        self.login_chash.push(ZonePlayerLogin { id: client.id(), client_cluster: client });
+        self.login_chash.push(ZonePlayerLogin {
+            id: client.id(),
+            client_cluster: client,
+        });
     }
 
     pub fn push_logout(&mut self, id: u64) {

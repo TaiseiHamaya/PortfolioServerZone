@@ -54,7 +54,8 @@ impl EntityAction {
             },
             action_type: ActionType::SPELL,
             cast: chrono::TimeDelta::from_std(std::time::Duration::from_secs_f32(1.5)).unwrap(),
-            damage_delay: chrono::TimeDelta::from_std(std::time::Duration::from_secs_f32(0.2)).unwrap(),
+            damage_delay: chrono::TimeDelta::from_std(std::time::Duration::from_secs_f32(0.2))
+                .unwrap(),
             recast: chrono::TimeDelta::from_std(std::time::Duration::from_secs_f32(2.5)).unwrap(),
             mp_cost: 1000,
             range: 25.0f32,
@@ -78,7 +79,6 @@ impl EntityAction {
 pub struct CurrentAction {
     id: u32,
     start_time: chrono::DateTime<chrono::Utc>,
-    
 }
 
 trait EntityActionTrait {}

@@ -11,7 +11,7 @@ use crate::zone::command::{self, CommandTrait};
 
 use crate::{
     game::entity::{
-        entity::{Entity, PlayActionOk, PlayActionError},
+        entity::{Entity, PlayActionError, PlayActionOk},
         player::Player,
     },
     net::proto,

@@ -11,7 +11,12 @@ async fn main() {
     log::info!("Server starting...\n");
 
     log::info!("Build info");
-    log::info!("Package version: {}, OS: {}, Arch: {}\n", env!("CARGO_PKG_VERSION"), std::env::consts::OS, std::env::consts::ARCH);
+    log::info!(
+        "Package version: {}, OS: {}, Arch: {}\n",
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::OS,
+        std::env::consts::ARCH
+    );
 
     app::framework::run().await;
 }

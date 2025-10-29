@@ -5,7 +5,7 @@ if (Get-Process -Name "Docker Desktop" -ErrorAction SilentlyContinue) {
 else {
 	Write-Host "Starting Docker Desktop..."
 	Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"
-	sleep 5
+	Start-Sleep 5
 	Write-Host "Docker Desktop started."
 }
 Write-Host "`n"
@@ -19,15 +19,15 @@ else {
 	# Wiresharkを起動
 	Write-Host "Starting Wireshark..."
 	Start-Process pwsh -ArgumentList "-Command", "Start-Process 'C:\Program Files\Wireshark\Wireshark.exe'" -WindowStyle Hidden
-	sleep 2
+	Start-Sleep 2
 	Write-Host "Wireshark started."
 }
 Write-Host "`n"
 
 Write-Host "Opening VS Code in devcontainer..."
 Start-Process pwsh -ArgumentList "-Command", 'devcontainer open .' -WindowStyle Hidden
-sleep 1
+Start-Sleep 1
 Write-Host "VS Code opened in devcontainer.`n"
 
 Write-Host "Complete open project."
-sleep 1
+Start-Sleep 1
