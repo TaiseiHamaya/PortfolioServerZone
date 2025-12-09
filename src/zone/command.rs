@@ -4,6 +4,26 @@ pub trait CommandTrait {
     fn execute(&self, zone: &mut zone::Zone);
 }
 
+pub struct LoginRequestCommand {
+    player_id: u64,
+    username: String,
+}
+
+impl LoginRequestCommand {
+    pub fn new(player_id: u64, username: String) -> Self {
+        LoginRequestCommand {
+            player_id,
+            username,
+        }
+    }
+}
+
+impl CommandTrait for LoginRequestCommand {
+    fn execute(&self, zone: &mut zone::Zone) {
+        zone.login_request(&self.player_id, &self.username);
+    }
+}
+
 pub struct LogoutRequestCommand {
     player_id: u64,
 }
