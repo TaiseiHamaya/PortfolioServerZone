@@ -43,6 +43,25 @@ impl<'action_list> Cluster<'action_list> {
         let messages = self.tcp.into_recv_messages();
         for msg in messages {
             match msg.category() {
+                proto::packet::CategoryOneof::CategoryLoginMessage(
+                    proto::CategoryLoginMessage::LoginRequest,
+                ) => {
+                    // ログインリクエスト
+                    let mut login_packet = proto::PayloadLoginRequest::new();
+                    let parsed = login_packet.clear_and_parse(&msg.payload());
+                    if parsed.is_err() {
+                        log::error!("Failed to parse LoginRequestBody: {:?}", parsed.err());
+                        continue;
+                    }
+                    let username = login_packet.username().to_string();
+                    log::info!("Player {} is attempting to log in.", username);
+                    self.name = username;
+                    self.command_buffers
+                        .push(Box::new(command::LoginRequestCommand::new(
+                            self.player.id(),
+                            self.name.clone(),
+                        )));
+                }
                 proto::packet::CategoryOneof::CategoryLogoutMessage(
                     proto::CategoryLogoutMessage::LogoutRequest,
                 ) => {
@@ -190,8 +209,7 @@ impl<'action_list> Cluster<'action_list> {
         notify_packet.set_category_login_message(proto::CategoryLoginMessage::LoginResult); // パケットタイプ
         let mut payload = proto::PayloadLoginResult::new();
         payload.set_id(self.player.id());
-        payload.set_is_successed(true);
-        payload.set_username(self.name.clone());
+        payload.set_is_succeeded(true);
         payload.set_position(proto::Vector3::new());
         notify_packet.set_payload(payload.serialize().unwrap()); // 中身
         self.tcp.stack_packet(notify_packet);

@@ -133,21 +133,6 @@ impl<'action_list> Zone<'action_list> {
 
                 // ログイン要求をチャッシュに追加
                 self.zone_request_chash.push_login(client_cluster);
-
-                // 既存プレイヤーに通知するパケットを作成
-                let mut notify_packet = proto::Packet::new();
-                notify_packet
-                    .set_category_login_message(proto::CategoryLoginMessage::LoginNotification); // パケットタイプ
-                let mut payload: proto::PayloadLoginNotification =
-                    proto::PayloadLoginNotification::new();
-                payload.set_id(player_id);
-                payload.set_username(player_name);
-                notify_packet.set_payload(payload.serialize().unwrap()); // 中身
-
-                // 既存プレイヤーに通知
-                self.players.iter_mut().for_each(|(_, cluster)| {
-                    cluster.stack_packet(notify_packet.clone());
-                });
             }
             Poll::Ready(Err(e)) => {
                 log::error!("Accept error: {} (Zone: {})", e, self.name);
@@ -240,6 +225,40 @@ impl<'action_list> Zone<'action_list> {
         });
     }
 
+    pub fn login_request(&mut self, player_id: &u64, username: &String) {
+        log::info!("Player {} ({}) requested login.", player_id, username);
+
+        // プレイヤー情報
+        let mut player = self.players.get_mut(player_id);
+        if player.is_none() {
+            return;
+        }
+
+        let player = player.as_mut().unwrap();
+
+        // 他のプレイヤーに通知
+        let mut packet = proto::Packet::new();
+        packet.set_category_login_message(proto::CategoryLoginMessage::LoginNotification);
+        let mut body = proto::PayloadLoginNotification::new();
+        body.set_id(*player_id);
+        body.set_username(username.clone());
+        let mut position = proto::Vector3::new();
+        let player_position = player.player().position();
+        position.set_x(player_position.x);
+        position.set_y(player_position.y);
+        position.set_z(player_position.z);
+        body.set_position(position);
+
+        packet.set_payload(body.serialize().unwrap());
+
+        self.players.iter_mut().for_each(|(id, cluster)| {
+            if *id == *player_id {
+                return; // 自分には送らない
+            }
+            cluster.stack_packet(packet.clone());
+        });
+    }
+
     // クライアントからの切断要求
     pub fn dissconnect_request(&mut self, player_id: &u64) {
         log::info!("Player {} requested disconnection.", player_id);
@@ -252,7 +271,7 @@ impl<'action_list> Zone<'action_list> {
                 let mut packet = proto::Packet::new();
                 packet.set_category_logout_message(proto::CategoryLogoutMessage::LogoutResponse);
                 let mut body = proto::PayloadLogoutResponse::new();
-                body.set_is_successed(true);
+                body.set_is_succeeded(true);
                 let payload = body.serialize();
                 if payload.is_ok() {
                     packet.set_payload(payload.unwrap());

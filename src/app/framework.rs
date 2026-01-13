@@ -1,4 +1,3 @@
-use chrono::Utc;
 use log;
 use std::{net::Ipv4Addr, time::Duration};
 use ticktock;

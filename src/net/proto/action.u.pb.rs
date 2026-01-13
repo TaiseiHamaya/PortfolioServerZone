@@ -122,8 +122,8 @@ impl<'msg> ActionAcquiredView<'msg> {
     ::protobuf::IntoProxied::into_proxied(*self, ::protobuf::__internal::Private)
   }
 
-  // jobName: optional string
-  pub fn jobName(self) -> ::protobuf::View<'msg, ::protobuf::ProtoString> {
+  // job_name: optional string
+  pub fn job_name(self) -> ::protobuf::View<'msg, ::protobuf::ProtoString> {
     let str_view = unsafe {
       self.inner.ptr().get_string_at_index(
         0, (b"").into()
@@ -301,8 +301,8 @@ impl<'msg> ActionAcquiredMut<'msg> {
     self.inner.arena()
   }
 
-  // jobName: optional string
-  pub fn jobName(&self) -> ::protobuf::View<'_, ::protobuf::ProtoString> {
+  // job_name: optional string
+  pub fn job_name(&self) -> ::protobuf::View<'_, ::protobuf::ProtoString> {
     let str_view = unsafe {
       self.inner.ptr().get_string_at_index(
         0, (b"").into()
@@ -311,7 +311,7 @@ impl<'msg> ActionAcquiredMut<'msg> {
     // SAFETY: The runtime doesn't require ProtoStr to be UTF-8.
     unsafe { ::protobuf::ProtoStr::from_utf8_unchecked(str_view.as_ref()) }
   }
-  pub fn set_jobName(&mut self, val: impl ::protobuf::IntoProxied<::protobuf::ProtoString>) {
+  pub fn set_job_name(&mut self, val: impl ::protobuf::IntoProxied<::protobuf::ProtoString>) {
     let s = val.into_proxied(::protobuf::__internal::Private);
     let (view, arena) =
       s.into_inner(::protobuf::__internal::Private).into_raw_parts();
@@ -440,8 +440,8 @@ impl ActionAcquired {
     ActionAcquiredMut::new(::protobuf::__internal::Private, inner)
   }
 
-  // jobName: optional string
-  pub fn jobName(&self) -> ::protobuf::View<'_, ::protobuf::ProtoString> {
+  // job_name: optional string
+  pub fn job_name(&self) -> ::protobuf::View<'_, ::protobuf::ProtoString> {
     let str_view = unsafe {
       self.inner.ptr().get_string_at_index(
         0, (b"").into()
@@ -450,7 +450,7 @@ impl ActionAcquired {
     // SAFETY: The runtime doesn't require ProtoStr to be UTF-8.
     unsafe { ::protobuf::ProtoStr::from_utf8_unchecked(str_view.as_ref()) }
   }
-  pub fn set_jobName(&mut self, val: impl ::protobuf::IntoProxied<::protobuf::ProtoString>) {
+  pub fn set_job_name(&mut self, val: impl ::protobuf::IntoProxied<::protobuf::ProtoString>) {
     let s = val.into_proxied(::protobuf::__internal::Private);
     let (view, arena) =
       s.into_inner(::protobuf::__internal::Private).into_raw_parts();
@@ -744,8 +744,8 @@ impl<'msg> EntityActionView<'msg> {
     ::protobuf::IntoProxied::into_proxied(*self, ::protobuf::__internal::Private)
   }
 
-  // actionId: optional uint32
-  pub fn actionId(self) -> u32 {
+  // action_id: optional uint32
+  pub fn action_id(self) -> u32 {
     unsafe {
       // TODO: b/361751487: This .into() and .try_into() is only
       // here for the enum<->i32 case, we should avoid it for
@@ -788,8 +788,8 @@ impl<'msg> EntityActionView<'msg> {
     super::ActionAcquiredView::new(::protobuf::__internal::Private, inner)
   }
 
-  // actionType: optional enum Proto.ActionType
-  pub fn actionType(self) -> super::ActionType {
+  // action_type: optional enum Proto.ActionType
+  pub fn action_type(self) -> super::ActionType {
     unsafe {
       // TODO: b/361751487: This .into() and .try_into() is only
       // here for the enum<->i32 case, we should avoid it for
@@ -803,16 +803,16 @@ impl<'msg> EntityActionView<'msg> {
     }
   }
 
-  // castTime: optional float
-  pub fn has_castTime(self) -> bool {
+  // cast_time: optional float
+  pub fn has_cast_time(self) -> bool {
     unsafe {
       self.inner.ptr().has_field_at_index(4)
     }
   }
-  pub fn castTime_opt(self) -> ::protobuf::Optional<f32> {
-        ::protobuf::Optional::new(self.castTime(), self.has_castTime())
+  pub fn cast_time_opt(self) -> ::protobuf::Optional<f32> {
+        ::protobuf::Optional::new(self.cast_time(), self.has_cast_time())
   }
-  pub fn castTime(self) -> f32 {
+  pub fn cast_time(self) -> f32 {
     unsafe {
       // TODO: b/361751487: This .into() and .try_into() is only
       // here for the enum<->i32 case, we should avoid it for
@@ -826,8 +826,8 @@ impl<'msg> EntityActionView<'msg> {
     }
   }
 
-  // recastTime: optional float
-  pub fn recastTime(self) -> f32 {
+  // recast_time: optional float
+  pub fn recast_time(self) -> f32 {
     unsafe {
       // TODO: b/361751487: This .into() and .try_into() is only
       // here for the enum<->i32 case, we should avoid it for
@@ -841,16 +841,16 @@ impl<'msg> EntityActionView<'msg> {
     }
   }
 
-  // mpCost: optional int32
-  pub fn has_mpCost(self) -> bool {
+  // mp_cost: optional int32
+  pub fn has_mp_cost(self) -> bool {
     unsafe {
       self.inner.ptr().has_field_at_index(6)
     }
   }
-  pub fn mpCost_opt(self) -> ::protobuf::Optional<i32> {
-        ::protobuf::Optional::new(self.mpCost(), self.has_mpCost())
+  pub fn mp_cost_opt(self) -> ::protobuf::Optional<i32> {
+        ::protobuf::Optional::new(self.mp_cost(), self.has_mp_cost())
   }
-  pub fn mpCost(self) -> i32 {
+  pub fn mp_cost(self) -> i32 {
     unsafe {
       // TODO: b/361751487: This .into() and .try_into() is only
       // here for the enum<->i32 case, we should avoid it for
@@ -1047,8 +1047,8 @@ impl<'msg> EntityActionMut<'msg> {
     self.inner.arena()
   }
 
-  // actionId: optional uint32
-  pub fn actionId(&self) -> u32 {
+  // action_id: optional uint32
+  pub fn action_id(&self) -> u32 {
     unsafe {
       // TODO: b/361751487: This .into() and .try_into() is only
       // here for the enum<->i32 case, we should avoid it for
@@ -1061,7 +1061,7 @@ impl<'msg> EntityActionMut<'msg> {
       ).try_into().unwrap()
     }
   }
-  pub fn set_actionId(&mut self, val: u32) {
+  pub fn set_action_id(&mut self, val: u32) {
     unsafe {
       // TODO: b/361751487: This .into() is only here
       // here for the enum<->i32 case, we should avoid it for
@@ -1153,8 +1153,8 @@ impl<'msg> EntityActionMut<'msg> {
     }
   }
 
-  // actionType: optional enum Proto.ActionType
-  pub fn actionType(&self) -> super::ActionType {
+  // action_type: optional enum Proto.ActionType
+  pub fn action_type(&self) -> super::ActionType {
     unsafe {
       // TODO: b/361751487: This .into() and .try_into() is only
       // here for the enum<->i32 case, we should avoid it for
@@ -1167,7 +1167,7 @@ impl<'msg> EntityActionMut<'msg> {
       ).try_into().unwrap()
     }
   }
-  pub fn set_actionType(&mut self, val: super::ActionType) {
+  pub fn set_action_type(&mut self, val: super::ActionType) {
     unsafe {
       // TODO: b/361751487: This .into() is only here
       // here for the enum<->i32 case, we should avoid it for
@@ -1179,23 +1179,23 @@ impl<'msg> EntityActionMut<'msg> {
     }
   }
 
-  // castTime: optional float
-  pub fn has_castTime(&self) -> bool {
+  // cast_time: optional float
+  pub fn has_cast_time(&self) -> bool {
     unsafe {
       self.inner.ptr().has_field_at_index(4)
     }
   }
-  pub fn clear_castTime(&mut self) {
+  pub fn clear_cast_time(&mut self) {
     unsafe {
       self.inner.ptr().clear_field_at_index(
         4
       );
     }
   }
-  pub fn castTime_opt(&self) -> ::protobuf::Optional<f32> {
-        ::protobuf::Optional::new(self.castTime(), self.has_castTime())
+  pub fn cast_time_opt(&self) -> ::protobuf::Optional<f32> {
+        ::protobuf::Optional::new(self.cast_time(), self.has_cast_time())
   }
-  pub fn castTime(&self) -> f32 {
+  pub fn cast_time(&self) -> f32 {
     unsafe {
       // TODO: b/361751487: This .into() and .try_into() is only
       // here for the enum<->i32 case, we should avoid it for
@@ -1208,7 +1208,7 @@ impl<'msg> EntityActionMut<'msg> {
       ).try_into().unwrap()
     }
   }
-  pub fn set_castTime(&mut self, val: f32) {
+  pub fn set_cast_time(&mut self, val: f32) {
     unsafe {
       // TODO: b/361751487: This .into() is only here
       // here for the enum<->i32 case, we should avoid it for
@@ -1220,8 +1220,8 @@ impl<'msg> EntityActionMut<'msg> {
     }
   }
 
-  // recastTime: optional float
-  pub fn recastTime(&self) -> f32 {
+  // recast_time: optional float
+  pub fn recast_time(&self) -> f32 {
     unsafe {
       // TODO: b/361751487: This .into() and .try_into() is only
       // here for the enum<->i32 case, we should avoid it for
@@ -1234,7 +1234,7 @@ impl<'msg> EntityActionMut<'msg> {
       ).try_into().unwrap()
     }
   }
-  pub fn set_recastTime(&mut self, val: f32) {
+  pub fn set_recast_time(&mut self, val: f32) {
     unsafe {
       // TODO: b/361751487: This .into() is only here
       // here for the enum<->i32 case, we should avoid it for
@@ -1246,23 +1246,23 @@ impl<'msg> EntityActionMut<'msg> {
     }
   }
 
-  // mpCost: optional int32
-  pub fn has_mpCost(&self) -> bool {
+  // mp_cost: optional int32
+  pub fn has_mp_cost(&self) -> bool {
     unsafe {
       self.inner.ptr().has_field_at_index(6)
     }
   }
-  pub fn clear_mpCost(&mut self) {
+  pub fn clear_mp_cost(&mut self) {
     unsafe {
       self.inner.ptr().clear_field_at_index(
         6
       );
     }
   }
-  pub fn mpCost_opt(&self) -> ::protobuf::Optional<i32> {
-        ::protobuf::Optional::new(self.mpCost(), self.has_mpCost())
+  pub fn mp_cost_opt(&self) -> ::protobuf::Optional<i32> {
+        ::protobuf::Optional::new(self.mp_cost(), self.has_mp_cost())
   }
-  pub fn mpCost(&self) -> i32 {
+  pub fn mp_cost(&self) -> i32 {
     unsafe {
       // TODO: b/361751487: This .into() and .try_into() is only
       // here for the enum<->i32 case, we should avoid it for
@@ -1275,7 +1275,7 @@ impl<'msg> EntityActionMut<'msg> {
       ).try_into().unwrap()
     }
   }
-  pub fn set_mpCost(&mut self, val: i32) {
+  pub fn set_mp_cost(&mut self, val: i32) {
     unsafe {
       // TODO: b/361751487: This .into() is only here
       // here for the enum<->i32 case, we should avoid it for
@@ -1426,8 +1426,8 @@ impl EntityAction {
     EntityActionMut::new(::protobuf::__internal::Private, inner)
   }
 
-  // actionId: optional uint32
-  pub fn actionId(&self) -> u32 {
+  // action_id: optional uint32
+  pub fn action_id(&self) -> u32 {
     unsafe {
       // TODO: b/361751487: This .into() and .try_into() is only
       // here for the enum<->i32 case, we should avoid it for
@@ -1440,7 +1440,7 @@ impl EntityAction {
       ).try_into().unwrap()
     }
   }
-  pub fn set_actionId(&mut self, val: u32) {
+  pub fn set_action_id(&mut self, val: u32) {
     unsafe {
       // TODO: b/361751487: This .into() is only here
       // here for the enum<->i32 case, we should avoid it for
@@ -1532,8 +1532,8 @@ impl EntityAction {
     }
   }
 
-  // actionType: optional enum Proto.ActionType
-  pub fn actionType(&self) -> super::ActionType {
+  // action_type: optional enum Proto.ActionType
+  pub fn action_type(&self) -> super::ActionType {
     unsafe {
       // TODO: b/361751487: This .into() and .try_into() is only
       // here for the enum<->i32 case, we should avoid it for
@@ -1546,7 +1546,7 @@ impl EntityAction {
       ).try_into().unwrap()
     }
   }
-  pub fn set_actionType(&mut self, val: super::ActionType) {
+  pub fn set_action_type(&mut self, val: super::ActionType) {
     unsafe {
       // TODO: b/361751487: This .into() is only here
       // here for the enum<->i32 case, we should avoid it for
@@ -1558,23 +1558,23 @@ impl EntityAction {
     }
   }
 
-  // castTime: optional float
-  pub fn has_castTime(&self) -> bool {
+  // cast_time: optional float
+  pub fn has_cast_time(&self) -> bool {
     unsafe {
       self.inner.ptr().has_field_at_index(4)
     }
   }
-  pub fn clear_castTime(&mut self) {
+  pub fn clear_cast_time(&mut self) {
     unsafe {
       self.inner.ptr().clear_field_at_index(
         4
       );
     }
   }
-  pub fn castTime_opt(&self) -> ::protobuf::Optional<f32> {
-        ::protobuf::Optional::new(self.castTime(), self.has_castTime())
+  pub fn cast_time_opt(&self) -> ::protobuf::Optional<f32> {
+        ::protobuf::Optional::new(self.cast_time(), self.has_cast_time())
   }
-  pub fn castTime(&self) -> f32 {
+  pub fn cast_time(&self) -> f32 {
     unsafe {
       // TODO: b/361751487: This .into() and .try_into() is only
       // here for the enum<->i32 case, we should avoid it for
@@ -1587,7 +1587,7 @@ impl EntityAction {
       ).try_into().unwrap()
     }
   }
-  pub fn set_castTime(&mut self, val: f32) {
+  pub fn set_cast_time(&mut self, val: f32) {
     unsafe {
       // TODO: b/361751487: This .into() is only here
       // here for the enum<->i32 case, we should avoid it for
@@ -1599,8 +1599,8 @@ impl EntityAction {
     }
   }
 
-  // recastTime: optional float
-  pub fn recastTime(&self) -> f32 {
+  // recast_time: optional float
+  pub fn recast_time(&self) -> f32 {
     unsafe {
       // TODO: b/361751487: This .into() and .try_into() is only
       // here for the enum<->i32 case, we should avoid it for
@@ -1613,7 +1613,7 @@ impl EntityAction {
       ).try_into().unwrap()
     }
   }
-  pub fn set_recastTime(&mut self, val: f32) {
+  pub fn set_recast_time(&mut self, val: f32) {
     unsafe {
       // TODO: b/361751487: This .into() is only here
       // here for the enum<->i32 case, we should avoid it for
@@ -1625,23 +1625,23 @@ impl EntityAction {
     }
   }
 
-  // mpCost: optional int32
-  pub fn has_mpCost(&self) -> bool {
+  // mp_cost: optional int32
+  pub fn has_mp_cost(&self) -> bool {
     unsafe {
       self.inner.ptr().has_field_at_index(6)
     }
   }
-  pub fn clear_mpCost(&mut self) {
+  pub fn clear_mp_cost(&mut self) {
     unsafe {
       self.inner.ptr().clear_field_at_index(
         6
       );
     }
   }
-  pub fn mpCost_opt(&self) -> ::protobuf::Optional<i32> {
-        ::protobuf::Optional::new(self.mpCost(), self.has_mpCost())
+  pub fn mp_cost_opt(&self) -> ::protobuf::Optional<i32> {
+        ::protobuf::Optional::new(self.mp_cost(), self.has_mp_cost())
   }
-  pub fn mpCost(&self) -> i32 {
+  pub fn mp_cost(&self) -> i32 {
     unsafe {
       // TODO: b/361751487: This .into() and .try_into() is only
       // here for the enum<->i32 case, we should avoid it for
@@ -1654,7 +1654,7 @@ impl EntityAction {
       ).try_into().unwrap()
     }
   }
-  pub fn set_mpCost(&mut self, val: i32) {
+  pub fn set_mp_cost(&mut self, val: i32) {
     unsafe {
       // TODO: b/361751487: This .into() is only here
       // here for the enum<->i32 case, we should avoid it for
