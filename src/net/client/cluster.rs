@@ -7,8 +7,7 @@ use protobuf::Serialize;
 
 use super::tcp_client::*;
 
-use crate::zone::command::{self, CommandTrait};
-
+use crate::zone::command;
 use crate::{
     game::entity::{
         entity::{Entity, PlayActionError, PlayActionOk},
@@ -22,7 +21,7 @@ pub struct Cluster<'action_list> {
     name: String,
     tcp: TcpClient,
 
-    command_buffers: Vec<Box<dyn CommandTrait>>,
+    command_buffers: Vec<Box<dyn command::CommandTrait>>,
 }
 
 impl<'action_list> Cluster<'action_list> {
@@ -120,7 +119,7 @@ impl<'action_list> Cluster<'action_list> {
                             match action.unwrap() {
                                 PlayActionOk::Damage(dmg) => {
                                     self.command_buffers.push(Box::new(
-                                        command::BeginActionCommand::new(
+                                        command::StartActionCommand::new(
                                             self.player.id(),
                                             action_id,
                                         ),
@@ -195,7 +194,7 @@ impl<'action_list> Cluster<'action_list> {
         self.tcp.send();
     }
 
-    pub fn take_commands(&mut self) -> Vec<Box<dyn CommandTrait>> {
+    pub fn take_commands(&mut self) -> Vec<Box<dyn command::CommandTrait>> {
         let commands = std::mem::take(&mut self.command_buffers);
         commands
     }

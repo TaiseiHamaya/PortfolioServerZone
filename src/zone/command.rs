@@ -1,129 +1,17 @@
-use crate::zone::zone;
+mod chat_broadcast_command;
+mod command_trait;
+mod disconnect_force_command;
+mod entity_damaged_command;
+mod login_request_command;
+mod logout_request_command;
+mod spawn_enemy_command;
+mod start_action_command;
 
-pub trait CommandTrait {
-    fn execute(&self, zone: &mut zone::Zone);
-}
-
-pub struct LoginRequestCommand {
-    player_id: u64,
-    username: String,
-}
-
-impl LoginRequestCommand {
-    pub fn new(player_id: u64, username: String) -> Self {
-        LoginRequestCommand {
-            player_id,
-            username,
-        }
-    }
-}
-
-impl CommandTrait for LoginRequestCommand {
-    fn execute(&self, zone: &mut zone::Zone) {
-        zone.login_request(&self.player_id, &self.username);
-    }
-}
-
-pub struct LogoutRequestCommand {
-    player_id: u64,
-}
-
-impl LogoutRequestCommand {
-    pub fn new(player_id: u64) -> Self {
-        LogoutRequestCommand { player_id }
-    }
-}
-
-impl CommandTrait for LogoutRequestCommand {
-    fn execute(&self, zone: &mut zone::Zone) {
-        zone.dissconnect_request(&self.player_id);
-    }
-}
-
-pub struct DisconnectForceCommand {
-    player_id: u64,
-}
-
-impl DisconnectForceCommand {
-    pub fn new(player_id: u64) -> Self {
-        DisconnectForceCommand { player_id }
-    }
-}
-
-impl CommandTrait for DisconnectForceCommand {
-    fn execute(&self, zone: &mut zone::Zone) {
-        zone.dissconnect_client_force(&self.player_id);
-    }
-}
-
-pub struct ChatBroadcastCommand {
-    id: u64,
-    message: String,
-}
-
-impl ChatBroadcastCommand {
-    pub fn new(id: u64, message: String) -> Self {
-        ChatBroadcastCommand { id, message }
-    }
-}
-
-impl CommandTrait for ChatBroadcastCommand {
-    fn execute(&self, zone: &mut zone::Zone) {
-        zone.broadcast_chat_message(self.id, &self.message);
-    }
-}
-
-pub struct BeginActionCommand {
-    id: u64,
-    action_id: u32,
-}
-
-impl BeginActionCommand {
-    pub fn new(id: u64, action_id: u32) -> Self {
-        BeginActionCommand { id, action_id }
-    }
-}
-
-impl CommandTrait for BeginActionCommand {
-    fn execute(&self, zone: &mut zone::Zone) {
-        zone.begin_entity_action(self.id, self.action_id);
-    }
-}
-
-pub struct DamagedEntityCommand {
-    attacker_id: u64,
-    target_id: u64,
-    damage: i32,
-}
-
-impl DamagedEntityCommand {
-    pub fn new(attacker_id: u64, target_id: u64, damage: i32) -> Self {
-        DamagedEntityCommand {
-            attacker_id,
-            target_id,
-            damage,
-        }
-    }
-}
-
-impl CommandTrait for DamagedEntityCommand {
-    fn execute(&self, zone: &mut zone::Zone) {
-        zone.entity_damaged(self.attacker_id, self.target_id, self.damage);
-    }
-}
-
-pub struct SpawnEnemyCommand {
-    enemy_id: u64,
-}
-
-impl SpawnEnemyCommand {
-    pub fn new(enemy_id: u64) -> Self {
-        SpawnEnemyCommand { enemy_id }
-    }
-}
-
-impl CommandTrait for SpawnEnemyCommand {
-    fn execute(&self, zone: &mut zone::Zone) {
-        zone.spawn_enemy(self.enemy_id);
-    }
-}
+pub use chat_broadcast_command::*;
+pub use command_trait::*;
+pub use disconnect_force_command::*;
+pub use entity_damaged_command::*;
+pub use login_request_command::*;
+pub use logout_request_command::*;
+pub use spawn_enemy_command::*;
+pub use start_action_command::*;

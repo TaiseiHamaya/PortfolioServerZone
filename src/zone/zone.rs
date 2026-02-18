@@ -8,7 +8,7 @@ use tokio::net::TcpListener;
 use nalgebra::Point3;
 use protobuf::*;
 
-use super::{command::CommandTrait, zone_request_cache::ZoneRequestChash};
+use super::{command::*, zone_request_cache::ZoneRequestChash};
 
 use crate::{
     game::{
@@ -225,198 +225,6 @@ impl<'action_list> Zone<'action_list> {
         });
     }
 
-    pub fn login_request(&mut self, player_id: &u64, username: &String) {
-        log::info!("Player {} ({}) requested login.", player_id, username);
-
-        // プレイヤー情報
-        let mut player = self.players.get_mut(player_id);
-        if player.is_none() {
-            return;
-        }
-
-        let player = player.as_mut().unwrap();
-
-        // 他のプレイヤーに通知
-        let mut packet = proto::Packet::new();
-        packet.set_category_login_message(proto::CategoryLoginMessage::LoginNotification);
-        let mut body = proto::PayloadLoginNotification::new();
-        body.set_id(*player_id);
-        body.set_username(username.clone());
-        let mut position = proto::Vector3::new();
-        let player_position = player.player().position();
-        position.set_x(player_position.x);
-        position.set_y(player_position.y);
-        position.set_z(player_position.z);
-        body.set_position(position);
-
-        packet.set_payload(body.serialize().unwrap());
-
-        self.players.iter_mut().for_each(|(id, cluster)| {
-            if *id == *player_id {
-                return; // 自分には送らない
-            }
-            cluster.stack_packet(packet.clone());
-        });
-    }
-
-    // クライアントからの切断要求
-    pub fn dissconnect_request(&mut self, player_id: &u64) {
-        log::info!("Player {} requested disconnection.", player_id);
-        // ログアウト要求をチャッシュに追加
-        self.zone_request_chash.push_logout(*player_id);
-        // パケット送信
-        // 要求を受けたクライアントに切断パケットを送信
-        {
-            if let Some(cluster) = self.players.get_mut(player_id) {
-                let mut packet = proto::Packet::new();
-                packet.set_category_logout_message(proto::CategoryLogoutMessage::LogoutResponse);
-                let mut body = proto::PayloadLogoutResponse::new();
-                body.set_is_succeeded(true);
-                let payload = body.serialize();
-                if payload.is_ok() {
-                    packet.set_payload(payload.unwrap());
-                    cluster.stack_packet(packet);
-                }
-            }
-        }
-
-        // その他のクライアントにログアウト通知パケットを送信
-        {
-            let mut packet = proto::Packet::new();
-            packet.set_category_logout_message(proto::CategoryLogoutMessage::LogoutNotification);
-            let mut body = proto::PayloadLogoutNotification::new();
-            body.set_id(*player_id);
-            let payload = body.serialize();
-            if payload.is_ok() {
-                packet.set_payload(payload.unwrap());
-                self.players.iter_mut().for_each(|(_, cluster)| {
-                    cluster.stack_packet(packet.clone());
-                });
-            }
-        }
-    }
-
-    // サーバーからエラーとして切断
-    pub fn dissconnect_client_force(&mut self, player_id: &u64) {
-        log::info!("Forcefully disconnecting player {}.", player_id);
-        // ログアウト要求をチャッシュに追加
-        self.zone_request_chash.push_logout(*player_id);
-
-        // 既存プレイヤーに通知するパケットを作成
-        {
-            let mut packet = proto::Packet::new();
-            packet.set_category_logout_message(proto::CategoryLogoutMessage::LogoutNotification);
-            let mut body = proto::PayloadLogoutNotification::new();
-            body.set_id(*player_id);
-            let payload = body.serialize();
-            if payload.is_ok() {
-                packet.set_payload(payload.unwrap());
-                self.players.iter_mut().for_each(|(_, cluster)| {
-                    cluster.stack_packet(packet.clone());
-                });
-            }
-        }
-    }
-
-    // チャットメッセージを全員に送信
-    pub fn broadcast_chat_message(&mut self, id: u64, message: &str) {
-        log::info!("Broadcasting chat message from {}: {}", id, message);
-        let mut packet = proto::Packet::new();
-        packet.set_category_text_message(proto::CategoryTextMessage::ChatReceive);
-        let mut body = proto::PayloadTextMessage::new();
-        body.set_id(id);
-        body.set_message(message.to_string());
-        let payload = body.serialize();
-        if payload.is_err() {
-            return;
-        }
-        packet.set_payload(payload.unwrap());
-        self.players.iter_mut().for_each(|(_, cluster)| {
-            cluster.stack_packet(packet.clone());
-        });
-    }
-
-    pub fn begin_entity_action(&mut self, id: u64, action_id: u32) {
-        log::info!("Entity {} begins action {}.", id, action_id);
-        let mut packet = proto::Packet::new();
-        packet.set_category_sync_message(proto::CategorySyncMessage::PlayAction);
-        let mut body = proto::PayloadPlayAction::new();
-        body.set_id(id);
-        body.set_action_id(action_id);
-        let payload = body.serialize();
-        if payload.is_err() {
-            return;
-        }
-        packet.set_payload(payload.unwrap());
-        // クライアントに通知
-        self.players.iter_mut().for_each(|(_, cluster)| {
-            cluster.stack_packet(packet.clone());
-        });
-    }
-
-    pub fn entity_damaged(&mut self, attacker_id: u64, target_id: u64, damage: i32) {
-        log::info!(
-            "Entity {} damaged entity {} for {} points.",
-            attacker_id,
-            target_id,
-            damage
-        );
-        // ダメージ処理
-        if let Some(enemy) = self.containts_directors[0]
-            .get_enemies_mut()
-            .get_mut(&target_id)
-        {
-            enemy.on_damaged(damage);
-
-            // ダメージ通知パケットを作成
-            let mut packet = proto::Packet::new();
-            packet.set_category_sync_message(proto::CategorySyncMessage::EntityDamaged);
-            let mut body: proto::PayloadEntityDamaged = proto::PayloadEntityDamaged::new();
-            body.set_attacker_id(attacker_id);
-            body.set_target_id(target_id);
-            body.set_damage(damage);
-            let payload = body.serialize();
-            if payload.is_err() {
-                log::error!(
-                    "Failed to serialize damage notification packet: {}",
-                    payload.unwrap_err()
-                );
-                return;
-            }
-            packet.set_payload(payload.unwrap());
-            self.players.iter_mut().for_each(|(_, cluster)| {
-                cluster.stack_packet(packet.clone());
-            });
-        }
-    }
-
-    pub fn spawn_enemy(&mut self, entity_id: u64) {
-        // クライアント通知
-        log::info!("Spawning enemy with ID {}.", entity_id);
-        let mut packet = proto::Packet::new();
-        packet.set_category_enemy_message(proto::CategoryEnemyMessage::EnemySpawn);
-        let mut body = proto::PayloadEnemySpawn::new();
-        body.set_id(entity_id);
-        body.set_name("RedComet");
-        let mut position = proto::Vector3::new();
-        position.set_x(0.0);
-        position.set_y(0.0);
-        position.set_z(0.0);
-        body.set_position(position);
-        let payload = body.serialize();
-        if payload.is_err() {
-            log::error!(
-                "Failed to serialize enemy spawn packet: {}",
-                payload.unwrap_err()
-            );
-            return;
-        }
-        packet.set_payload(payload.unwrap());
-        self.players.iter_mut().for_each(|(_, cluster)| {
-            cluster.stack_packet(packet.clone());
-        });
-    }
-
     pub fn sync_entity_transform_all(&mut self) {
         let timestamp = chrono::Utc::now().timestamp_micros() as u64;
         let transforms = self
@@ -457,5 +265,18 @@ impl<'action_list> Zone<'action_list> {
             }
             cluster.stack_packet(packet.clone());
         });
+    }
+
+    // ---------- getter ----------
+    pub fn players_mut(&mut self) -> &mut HashMap<u64, client::Cluster<'action_list>> {
+        &mut self.players
+    }
+
+    pub fn zone_request_chash_mut(&mut self) -> &mut ZoneRequestChash<'action_list> {
+        &mut self.zone_request_chash
+    }
+
+    pub fn containts_director_mut(&mut self, index: usize) -> Option<&mut ContaintsDirector> {
+        self.containts_directors.get_mut(index)
     }
 }
