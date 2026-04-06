@@ -1,6 +1,8 @@
 use chrono;
 use nalgebra::Point3;
 
+use crate::game::action::action_list::ActionList;
+
 use super::entity::{Entity, PlayActionError, PlayActionOk};
 use super::entity_id::EntityId;
 
@@ -64,10 +66,12 @@ impl Entity for Enemy {
         self.id.id()
     }
 
+    #[allow(unused_variables)]
     fn play_action(
         &mut self,
         action_id: u32,
         play_utc: &chrono::DateTime<chrono::Utc>,
+        action_list: &ActionList,
     ) -> Result<PlayActionOk, PlayActionError> {
         Ok(PlayActionOk::Damage(0))
     }

@@ -2,20 +2,20 @@ use std::mem;
 
 use crate::net::client;
 
-pub struct ZonePlayerLogin<'action_list> {
+pub struct ZonePlayerLogin {
     pub id: u64,
-    pub client_cluster: client::Cluster<'action_list>,
+    pub client_cluster: client::Cluster,
 }
 pub struct ZonePlayerLogout {
     pub entity_id: u64,
 }
 
-pub struct ZoneRequestChash<'action_list> {
-    pub login_chash: Vec<ZonePlayerLogin<'action_list>>,
+pub struct ZoneRequestChash {
+    pub login_chash: Vec<ZonePlayerLogin>,
     pub logout_chash: Vec<ZonePlayerLogout>,
 }
 
-impl<'action_list> ZoneRequestChash<'action_list> {
+impl ZoneRequestChash {
     pub fn new() -> Self {
         ZoneRequestChash {
             login_chash: Vec::new(),
@@ -28,7 +28,7 @@ impl<'action_list> ZoneRequestChash<'action_list> {
         self.logout_chash.clear();
     }
 
-    pub fn push_login(&mut self, client: client::Cluster<'action_list>) {
+    pub fn push_login(&mut self, client: client::Cluster) {
         self.login_chash.push(ZonePlayerLogin {
             id: client.id(),
             client_cluster: client,
@@ -39,7 +39,7 @@ impl<'action_list> ZoneRequestChash<'action_list> {
         self.logout_chash.push(ZonePlayerLogout { entity_id: id });
     }
 
-    pub fn get_login_chash_take(&mut self) -> Vec<ZonePlayerLogin<'action_list>> {
+    pub fn get_login_chash_take(&mut self) -> Vec<ZonePlayerLogin> {
         mem::take(&mut self.login_chash)
     }
 

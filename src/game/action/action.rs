@@ -1,5 +1,6 @@
 use nalgebra::Point3;
 
+#[derive(Debug)]
 pub struct ActionAcquired {
     job_name: String,
     level: u32,
@@ -30,6 +31,7 @@ enum TargetValue {
     TargetRange(Point3<f32>, f32),
 }
 
+#[derive(Debug)]
 pub struct EntityAction {
     id: u32,
     name: String,

@@ -1,57 +1,51 @@
-use std::collections::HashMap;
-use std::task::{Context, Poll};
-
-use futures::{StreamExt, stream};
 use log;
-use tokio::net::TcpListener;
-
 use nalgebra::Point3;
-use protobuf::*;
+use std::collections::HashMap;
 
 use super::{command::*, zone_request_cache::ZoneRequestChash};
 
+use crate::generated::proto_client::{PayloadTransformSync, Vector3};
+use crate::proto_service::{
+    client::backend_client::BackendClient, server::backent_server::BackendServerReceiver,
+};
 use crate::{
-    game::{
-        action::action_list_table,
-        contents::containts_director::ContaintsDirector,
-        entity::{entity::Entity, player::Player},
-    },
-    net::{
-        client::{self, TcpClient},
-        proto,
-    },
+    game::{contents::containts_director::ContaintsDirector, entity::entity::Entity},
+    net::client::{self},
 };
 
-pub struct Zone<'action_list> {
+pub struct Zone {
     name: String,
     next_use_entity_id: u64,
-    players: HashMap<u64, client::Cluster<'action_list>>,
 
-    containts_directors: Vec<ContaintsDirector>,
+    players: HashMap<u64, client::Cluster>,
 
-    tcp_listener: TcpListener,
+    contains_directors: Vec<ContaintsDirector>,
 
-    actions_list_table: &'action_list action_list_table::ActionListTable,
-    zone_request_chash: ZoneRequestChash<'action_list>,
+    zone_request_chash: ZoneRequestChash,
+
+    backend_client: BackendClient,
+    backend_server_receiver: BackendServerReceiver,
+    async_tasks: tokio::task::JoinSet<Option<CommandBox>>,
 }
 
-impl<'action_list> Zone<'action_list> {
+impl Zone {
     pub fn new(
         name: String,
-        listner: TcpListener,
-        actions_list_table: &'action_list action_list_table::ActionListTable,
+        backend_client: BackendClient,
+        backend_server_receiver: BackendServerReceiver,
     ) -> Self {
         Zone {
             name,
             next_use_entity_id: 0,
             players: HashMap::new(),
 
-            containts_directors: Vec::new(),
+            contains_directors: Vec::new(),
 
-            tcp_listener: listner,
-
-            actions_list_table,
             zone_request_chash: ZoneRequestChash::new(),
+
+            backend_client,
+            backend_server_receiver,
+            async_tasks: tokio::task::JoinSet::new(),
         }
     }
 
@@ -60,28 +54,20 @@ impl<'action_list> Zone<'action_list> {
         let mut director = ContaintsDirector::new();
         director.spawn_enemy(self.next_use_entity_id);
         self.next_use_entity_id += 1;
-        self.containts_directors.push(director);
+        self.contains_directors.push(director);
     }
 
     pub async fn update(&mut self) {
-        // パケット受信
-        self.recv_all().await;
-
-        // クライアント接続受付
-        self.accept_client().await;
-
-        // クライアントのパケット処理
-        self.players.iter_mut().for_each(|(_, client)| {
-            client.process_packets();
-        });
+        // メッセージ処理
+        self.receive_messages();
 
         // 通常更新処理
-        self.players.iter_mut().for_each(|(_, player)| {
-            player.update();
+        self.players.iter_mut().for_each(|(_, cluster)| {
+            cluster.update();
         });
 
         // コンテンツディレクターの処理
-        self.containts_directors.iter_mut().for_each(|director| {
+        self.contains_directors.iter_mut().for_each(|director| {
             director.update();
         });
 
@@ -93,131 +79,74 @@ impl<'action_list> Zone<'action_list> {
 
         // クライアント追加/削除処理
         self.add_client_accepted();
-        self.remove_client_chashed();
+        self.remove_client_cashed();
 
         // チャッシュクリア
         self.zone_request_chash.clear();
-
-        // パケット送信
-        self.send_all().await;
     }
 
-    async fn recv_all(&mut self) {
-        stream::iter(self.players.values_mut())
-            .for_each_concurrent(None, |client| async move {
-                client.recv_packets().await;
-            })
-            .await;
-    }
-
-    async fn accept_client(&mut self) {
-        let waker = futures::task::noop_waker();
-        let mut cx = Context::from_waker(&waker);
-        match self.tcp_listener.poll_accept(&mut cx) {
-            Poll::Ready(Ok((stream, addr))) => {
-                // 後でDB接続に変える
-                log::info!("Accepted connection from {}", addr);
-                let player_id = self.next_use_entity_id;
-                self.next_use_entity_id += 1;
-                let player_name = format!("Player{}", player_id);
-
-                let position = Point3::new(0.0, 0.0, 0.0); // 初期位置は(0, 0, 0)
-                let player = Player::new(
-                    player_id,
-                    position,
-                    10000,
-                    self.actions_list_table.get_action_list(0).unwrap(),
-                );
-                let client_cluster =
-                    client::Cluster::new(player, player_name.clone(), TcpClient::new(stream, addr));
-
-                // ログイン要求をチャッシュに追加
-                self.zone_request_chash.push_login(client_cluster);
-            }
-            Poll::Ready(Err(e)) => {
-                log::error!("Accept error: {} (Zone: {})", e, self.name);
-            }
-            Poll::Pending => {}
-        }
-    }
-
-    async fn send_all(&mut self) {
-        self.players.iter_mut().for_each(|(_, client)| {
-            client.send_packets();
+    fn receive_messages(&mut self) {
+        // クライアントからのsyncコマンド
+        let sync_message_len = self.backend_server_receiver.sync_command_receiver.len();
+        let mut sync_messages = Vec::with_capacity(sync_message_len);
+        self.backend_server_receiver
+            .sync_command_receiver
+            .blocking_recv_many(&mut sync_messages, sync_message_len);
+        sync_messages.into_iter().for_each(|message| {
+            message.execute(self);
         });
+        // worldからのコマンド
+        let world_command_len = self.backend_server_receiver.world_command_receiver.len();
+        let mut world_commands = Vec::with_capacity(world_command_len);
+        self.backend_server_receiver
+            .world_command_receiver
+            .blocking_recv_many(&mut world_commands, world_command_len);
+        world_commands.into_iter().for_each(|command| {
+            command.execute(self);
+        });
+
+        // クライアントからのコマンドを収集して実行
+        let commnads = self
+            .players
+            .values_mut()
+            .flat_map(|cluster| cluster.take_commands())
+            .collect::<Vec<CommandBox>>();
+        commnads
+            .into_iter()
+            .for_each(|command| command.execute(self));
+
+        // chainするタイプのコマンドを実行
+        while let Some(result) = self.async_tasks.try_join_next() {
+            if let Ok(Some(command)) = result {
+                command.execute(self);
+            }
+        }
     }
 
     // プレイヤー追加
     fn add_client_accepted(&mut self) {
         let login_chash = self.zone_request_chash.get_login_chash_take();
-        login_chash.into_iter().for_each(
-            |mut login: super::zone_request_cache::ZonePlayerLogin<'_>| {
-                // 接続完了通知
-                login.client_cluster.on_accepted();
-                // 既存プレイヤーの情報を送信
-                self.players.iter_mut().for_each(|(id, cluster)| {
-                    let mut packet = proto::Packet::new();
-                    packet
-                        .set_category_login_message(proto::CategoryLoginMessage::LoginNotification);
-                    let mut body = proto::PayloadLoginNotification::new();
-                    body.set_id(*id);
-                    body.set_username(cluster.player_name().clone());
-                    let mut position = proto::Vector3::new();
-                    let cluster_position = cluster.player().position();
-                    position.set_x(cluster_position.x);
-                    position.set_y(cluster_position.y);
-                    position.set_z(cluster_position.z);
-                    body.set_position(position);
-                    packet.set_payload(body.serialize().unwrap());
-                    // パケットを積む
-                    login.client_cluster.stack_packet(packet);
-                });
-                // 敵のスポーン情報を送信
-                self.containts_directors[0]
-                    .get_enemies_mut()
-                    .iter()
-                    .for_each(|(_, enemy)| {
-                        let mut packet = proto::Packet::new();
-                        packet.set_category_enemy_message(proto::CategoryEnemyMessage::EnemySpawn);
-                        let mut body = proto::PayloadEnemySpawn::new();
-                        body.set_id(enemy.id());
-                        body.set_name(enemy.get_name().clone());
-                        let mut position = proto::Vector3::new();
-                        let enemy_position = enemy.position();
-                        position.set_x(enemy_position.x);
-                        position.set_y(enemy_position.y);
-                        position.set_z(enemy_position.z);
-                        body.set_position(position);
-                        let payload = body.serialize();
-                        if payload.is_err() {
-                            log::error!(
-                                "Failed to serialize enemy spawn packet: {}",
-                                payload.unwrap_err()
-                            );
-                            return;
-                        }
-                        packet.set_payload(payload.unwrap());
-                        login.client_cluster.stack_packet(packet);
-                    });
-                // プレイヤーリストに追加
-                self.players.insert(login.id, login.client_cluster);
-            },
-        );
+        login_chash.into_iter().for_each(|login| {
+            // 接続完了通知
+            // プレイヤーリストに追加
+            self.players.insert(login.id, login.client_cluster);
+        });
     }
 
     fn execute_client_commands(&mut self) {
-        let commands: Vec<Box<dyn CommandTrait>> = self
+        let commands: Vec<CommandBox> = self
             .players
             .values_mut()
             .flat_map(|cluster| cluster.take_commands())
             .collect();
-        for command in commands {
-            command.execute(self);
-        }
+
+        commands
+            .into_iter()
+            .for_each(|command| command.execute(self));
     }
 
     // アプリケーション内での削除処理
-    fn remove_client_chashed(&mut self) {
+    fn remove_client_cashed(&mut self) {
         let logout_chash = self.zone_request_chash.get_logout_chash_take();
 
         logout_chash.into_iter().for_each(|logout| {
@@ -227,56 +156,83 @@ impl<'action_list> Zone<'action_list> {
 
     pub fn sync_entity_transform_all(&mut self) {
         let timestamp = chrono::Utc::now().timestamp_micros() as u64;
-        let transforms = self
-            .players
-            .iter()
-            .map(|(id, cluster)| {
-                let position = cluster.player().position();
-                (*id, timestamp, *position)
-            })
-            .collect::<Vec<_>>();
-        transforms
-            .into_iter()
-            .for_each(|(entity_id, timestamp, position)| {
-                self.sync_entity_transform(entity_id, timestamp, position);
+
+        let mut transforms = Vec::new();
+
+        // プレイヤー
+        self.players.iter().for_each(|(id, cluster)| {
+            let position = cluster.player().position();
+            transforms.push((*id, *position));
+        });
+
+        // 敵
+        self.contains_directors.iter().for_each(|director| {
+            director.enemies().iter().for_each(|(id, enemy)| {
+                let position = enemy.position();
+                transforms.push((*id, *position));
             });
+        });
+
+        transforms.into_iter().for_each(|(entity_id, position)| {
+            self.sync_entity_transform(entity_id, timestamp, position);
+        });
     }
 
     // 位置の同期をクライアントに通知
     pub fn sync_entity_transform(&mut self, entity_id: u64, timestamp: u64, position: Point3<f32>) {
-        let mut packet = proto::Packet::new();
-        packet.set_category_sync_message(proto::CategorySyncMessage::SyncTransform);
-        let mut body = proto::PayloadTransformSync::new();
-        body.set_id(entity_id);
-        body.set_timestamp(timestamp);
-        let mut pos = proto::Vector3::new();
-        pos.set_x(position.x);
-        pos.set_y(position.y);
-        pos.set_z(position.z);
-        body.set_position(pos);
-        let payload = body.serialize();
-        if payload.is_err() {
-            return;
-        }
-        packet.set_payload(payload.unwrap());
-        self.players.iter_mut().for_each(|(player_id, cluster)| {
-            if entity_id == *player_id {
-                return; // 自分には送らない
+        let mut client = self.backend_client.zone_broadcast_service_client.clone();
+        let message = PayloadTransformSync {
+            id: entity_id,
+            timestamp,
+            position: Some(Vector3 {
+                x: position.x,
+                y: position.y,
+                z: position.z,
+            }),
+        };
+        tokio::spawn(async move {
+            if let Err(e) = client.sync_transform(message).await {
+                log::error!("Failed to sync entity transform: {}", e);
             }
-            cluster.stack_packet(packet.clone());
         });
     }
 
+    pub fn add_async_command(
+        &mut self,
+        task: impl std::future::Future<Output = Option<CommandBox>> + Send + 'static,
+    ) {
+        self.async_tasks.spawn(task);
+    }
+
     // ---------- getter ----------
-    pub fn players_mut(&mut self) -> &mut HashMap<u64, client::Cluster<'action_list>> {
+    pub fn players_mut(&mut self) -> &mut HashMap<u64, client::Cluster> {
         &mut self.players
     }
 
-    pub fn zone_request_chash_mut(&mut self) -> &mut ZoneRequestChash<'action_list> {
+    pub fn zone_request_chash_mut(&mut self) -> &mut ZoneRequestChash {
         &mut self.zone_request_chash
     }
 
-    pub fn containts_director_mut(&mut self, index: usize) -> Option<&mut ContaintsDirector> {
-        self.containts_directors.get_mut(index)
+    pub fn contains_director_mut(&mut self, index: usize) -> Option<&mut ContaintsDirector> {
+        self.contains_directors.get_mut(index)
+    }
+
+    pub fn tonic_client_mut(&mut self) -> &mut BackendClient {
+        &mut self.backend_client
+    }
+
+    pub fn entity_mut(&mut self, entity_id: &u64) -> Option<&mut dyn Entity> {
+        if let Some(cluster) = self.players.get_mut(entity_id) {
+            Some(cluster.player_mut())
+        } else if let Some(enemy) = self
+            .contains_directors
+            .iter_mut()
+            .find(|director| director.enemies().contains_key(entity_id))
+            .and_then(|director| director.enemies_mut().get_mut(entity_id))
+        {
+            Some(enemy)
+        } else {
+            None
+        }
     }
 }

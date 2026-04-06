@@ -1,7 +1,9 @@
 mod app;
 mod game;
+mod generated;
 mod math;
 mod net;
+mod proto_service;
 mod zone;
 
 #[tokio::main]

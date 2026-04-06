@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use crate::{
     game::entity::{enemy::Enemy, entity::Entity},
-    zone::command::{CommandTrait, SpawnEnemyCommand},
+    zone::command::{
+        CommandTrait, sync_service::broadcast::spawn_enemy_command::SpawnEnemyCommand,
+    },
 };
 
 pub struct ContaintsDirector {
@@ -36,7 +38,11 @@ impl ContaintsDirector {
         });
     }
 
-    pub fn get_enemies_mut(&mut self) -> &mut HashMap<u64, Enemy> {
+    pub fn enemies(&self) -> &HashMap<u64, Enemy> {
+        &self.enemies
+    }
+
+    pub fn enemies_mut(&mut self) -> &mut HashMap<u64, Enemy> {
         &mut self.enemies
     }
 }

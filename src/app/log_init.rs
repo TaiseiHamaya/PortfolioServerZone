@@ -41,7 +41,7 @@ pub fn init() {
             simplelog::TerminalMode::Mixed,
             simplelog::ColorChoice::Auto,
         ),
-        // ファイルsimplelog.logにはInfo以上を表示する。
+        // file_levelは、debugビルドではdebug、releaseビルドではinfo以上をファイルに出力する。
         simplelog::WriteLogger::new(file_level, config.clone(), log_file.unwrap()),
     ])
     .unwrap();

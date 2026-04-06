@@ -1,27 +1,31 @@
 use log;
-use std::{net::Ipv4Addr, time::Duration};
+use std::time::Duration;
 use ticktock;
-use tokio::net::TcpListener;
 
 use super::tick_time;
 
-use crate::{game::action::action_list_table, zone::zone::Zone};
+use crate::{
+    game::action::action_list_table,
+    proto_service::{client::backend_client::BackendClient, server::backent_server},
+    zone::zone::Zone,
+};
 
 pub async fn run() {
     // 初期化
-    let tcp_listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 3215)).await;
-    if tcp_listener.is_err() {
-        log::error!("Error binding TCP listener: {}", tcp_listener.unwrap_err());
-        return;
-    }
+    // バックエンドサーバーと接続
+    let backend_client = BackendClient::new().await;
+
+    // serverの起動
+    let backend_server_receiver = backent_server::create_backend_server(0).await;
+
     // ActionListTableをDBから読む
-    let action_list_table = action_list_table::ActionListTable::load_from_database();
+    action_list_table::ActionListTable::load_from_database();
 
     // Zoneの生成と初期化
     let mut zone = Zone::new(
         "TestZone".to_string(),
-        tcp_listener.unwrap(),
-        &action_list_table,
+        backend_client,
+        backend_server_receiver,
     );
     zone.initialize().await;
     let tick_duration = chrono::TimeDelta::from_std(Duration::from_millis(50)).unwrap();

@@ -1,6 +1,8 @@
 use chrono;
 use nalgebra::Point3;
 
+use crate::game::action::action_list::ActionList;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PlayActionOk {
     Damage(i32),
@@ -27,5 +29,6 @@ pub trait Entity {
         &mut self,
         action_id: u32,
         play_utc: &chrono::DateTime<chrono::Utc>,
+        action_list: &ActionList,
     ) -> Result<PlayActionOk, PlayActionError>;
 }

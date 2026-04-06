@@ -1,5 +1,6 @@
 use super::action;
 
+#[derive(Debug)]
 pub struct ActionList {
     actions: Vec<action::EntityAction>,
 }
