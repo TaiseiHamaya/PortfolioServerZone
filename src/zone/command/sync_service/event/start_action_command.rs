@@ -77,10 +77,7 @@ impl CommandTrait for StartActionCommand {
             dmg
         );
 
-        let mut client = zone
-            .tonic_client_mut()
-            .zone_broadcast_service_client
-            .clone();
+        let clients = zone.tonic_client_mut().get_gateway_clients();
 
         let play_action_message = PayloadPlayAction {
             id: self.id,
@@ -95,12 +92,14 @@ impl CommandTrait for StartActionCommand {
         };
 
         tokio::spawn(async move {
-            if let Err(e) = client.play_action(play_action_message).await {
-                log::error!("Failed to send play action message: {}", e);
-                return;
-            }
-            if let Err(e) = client.entity_damaged(entity_damaged_message).await {
-                log::error!("Failed to send entity damaged message: {}", e);
+            for mut client in clients {
+                if let Err(e) = client.play_action(play_action_message.clone()).await {
+                    log::error!("Failed to send play action message: {}", e);
+                    continue;
+                }
+                if let Err(e) = client.entity_damaged(entity_damaged_message.clone()).await {
+                    log::error!("Failed to send entity damaged message: {}", e);
+                }
             }
         });
     }

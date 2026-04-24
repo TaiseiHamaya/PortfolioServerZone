@@ -21,10 +21,7 @@ impl CommandTrait for ChatBroadcastCommand {
             self.message
         );
 
-        let mut client = zone
-            .tonic_client_mut()
-            .zone_broadcast_service_client
-            .clone();
+        let clients = zone.tonic_client_mut().get_gateway_clients();
 
         let message = PayloadTextMessage {
             id: self.id,
@@ -32,9 +29,11 @@ impl CommandTrait for ChatBroadcastCommand {
         };
 
         tokio::spawn(async move {
-            let result = client.send_chat(message).await;
-            if let Err(e) = result {
-                log::error!("Failed to broadcast chat message: {}", e);
+            for mut client in clients {
+                let result = client.send_chat(message.clone()).await;
+                if let Err(e) = result {
+                    log::error!("Failed to broadcast chat message: {}", e);
+                }
             }
         });
     }

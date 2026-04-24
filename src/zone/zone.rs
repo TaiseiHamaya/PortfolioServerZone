@@ -2,7 +2,7 @@ use log;
 use nalgebra::Point3;
 use std::collections::HashMap;
 
-use super::{command::*, zone_request_cache::ZoneRequestChash};
+use super::command::*;
 
 use crate::generated::proto_client::{PayloadTransformSync, Vector3};
 use crate::proto_service::{
@@ -15,13 +15,13 @@ use crate::{
 
 pub struct Zone {
     name: String,
+    id: u64,
     next_use_entity_id: u64,
 
     players: HashMap<u64, client::Cluster>,
+    routeing_players: HashMap<u64, client::Cluster>,
 
     contains_directors: Vec<ContaintsDirector>,
-
-    zone_request_chash: ZoneRequestChash,
 
     backend_client: BackendClient,
     backend_server_receiver: BackendServerReceiver,
@@ -36,12 +36,11 @@ impl Zone {
     ) -> Self {
         Zone {
             name,
+            id: 0,
             next_use_entity_id: 0,
             players: HashMap::new(),
-
+            routeing_players: HashMap::new(),
             contains_directors: Vec::new(),
-
-            zone_request_chash: ZoneRequestChash::new(),
 
             backend_client,
             backend_server_receiver,
@@ -59,7 +58,7 @@ impl Zone {
 
     pub async fn update(&mut self) {
         // メッセージ処理
-        self.receive_messages();
+        self.receive_messages().await;
 
         // 通常更新処理
         self.players.iter_mut().for_each(|(_, cluster)| {
@@ -76,31 +75,46 @@ impl Zone {
 
         // 位置同期
         self.sync_entity_transform_all();
-
-        // クライアント追加/削除処理
-        self.add_client_accepted();
-        self.remove_client_cashed();
-
-        // チャッシュクリア
-        self.zone_request_chash.clear();
     }
 
-    fn receive_messages(&mut self) {
+    async fn receive_messages(&mut self) {
         // クライアントからのsyncコマンド
         let sync_message_len = self.backend_server_receiver.sync_command_receiver.len();
         let mut sync_messages = Vec::with_capacity(sync_message_len);
         self.backend_server_receiver
             .sync_command_receiver
-            .blocking_recv_many(&mut sync_messages, sync_message_len);
+            .recv_many(&mut sync_messages, sync_message_len)
+            .await;
         sync_messages.into_iter().for_each(|message| {
             message.execute(self);
         });
         // worldからのコマンド
-        let world_command_len = self.backend_server_receiver.world_command_receiver.len();
+        let world_command_len = self.backend_server_receiver.world_route_receiver.len();
         let mut world_commands = Vec::with_capacity(world_command_len);
         self.backend_server_receiver
-            .world_command_receiver
-            .blocking_recv_many(&mut world_commands, world_command_len);
+            .world_route_receiver
+            .recv_many(&mut world_commands, world_command_len)
+            .await;
+        world_commands.into_iter().for_each(|command| {
+            command.execute(self);
+        });
+
+        // backendから
+        let sync_command_len = self.backend_server_receiver.sync_command_receiver.len();
+        let mut sync_commands = Vec::with_capacity(sync_command_len);
+        self.backend_server_receiver
+            .sync_command_receiver
+            .recv_many(&mut sync_commands, sync_command_len)
+            .await;
+        sync_commands.into_iter().for_each(|command| {
+            command.execute(self);
+        });
+        let world_command_len = self.backend_server_receiver.world_route_receiver.len();
+        let mut world_commands = Vec::with_capacity(world_command_len);
+        self.backend_server_receiver
+            .world_route_receiver
+            .recv_many(&mut world_commands, world_command_len)
+            .await;
         world_commands.into_iter().for_each(|command| {
             command.execute(self);
         });
@@ -123,16 +137,6 @@ impl Zone {
         }
     }
 
-    // プレイヤー追加
-    fn add_client_accepted(&mut self) {
-        let login_chash = self.zone_request_chash.get_login_chash_take();
-        login_chash.into_iter().for_each(|login| {
-            // 接続完了通知
-            // プレイヤーリストに追加
-            self.players.insert(login.id, login.client_cluster);
-        });
-    }
-
     fn execute_client_commands(&mut self) {
         let commands: Vec<CommandBox> = self
             .players
@@ -143,15 +147,6 @@ impl Zone {
         commands
             .into_iter()
             .for_each(|command| command.execute(self));
-    }
-
-    // アプリケーション内での削除処理
-    fn remove_client_cashed(&mut self) {
-        let logout_chash = self.zone_request_chash.get_logout_chash_take();
-
-        logout_chash.into_iter().for_each(|logout| {
-            self.players.remove(&logout.entity_id);
-        });
     }
 
     pub fn sync_entity_transform_all(&mut self) {
@@ -180,7 +175,7 @@ impl Zone {
 
     // 位置の同期をクライアントに通知
     pub fn sync_entity_transform(&mut self, entity_id: u64, timestamp: u64, position: Point3<f32>) {
-        let mut client = self.backend_client.zone_broadcast_service_client.clone();
+        let clients = self.backend_client.get_gateway_clients();
         let message = PayloadTransformSync {
             id: entity_id,
             timestamp,
@@ -190,11 +185,14 @@ impl Zone {
                 z: position.z,
             }),
         };
-        tokio::spawn(async move {
-            if let Err(e) = client.sync_transform(message).await {
-                log::error!("Failed to sync entity transform: {}", e);
-            }
-        });
+        for mut client in clients {
+            let message_clone = message.clone();
+            tokio::spawn(async move {
+                if let Err(e) = client.sync_transform(message_clone).await {
+                    log::error!("Failed to sync entity transform: {}", e);
+                }
+            });
+        }
     }
 
     pub fn add_async_command(
@@ -209,8 +207,8 @@ impl Zone {
         &mut self.players
     }
 
-    pub fn zone_request_chash_mut(&mut self) -> &mut ZoneRequestChash {
-        &mut self.zone_request_chash
+    pub fn routeing_players_mut(&mut self) -> &mut HashMap<u64, client::Cluster> {
+        &mut self.routeing_players
     }
 
     pub fn contains_director_mut(&mut self, index: usize) -> Option<&mut ContaintsDirector> {
@@ -234,5 +232,15 @@ impl Zone {
         } else {
             None
         }
+    }
+
+    pub fn id(&self) -> u64 {
+        self.id
+    }
+
+    pub fn next_entity_id(&mut self) -> u64 {
+        let id = self.next_use_entity_id;
+        self.next_use_entity_id += 1;
+        id
     }
 }

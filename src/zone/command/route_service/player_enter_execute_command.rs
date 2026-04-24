@@ -1,18 +1,65 @@
-use crate::{net::client::Cluster, zone::command::CommandTrait};
+use tokio::sync::oneshot;
+
+use crate::{
+    game::entity::entity::Entity, generated::proto_client::PayloadZoneEnterNotification,
+    zone::command::CommandTrait,
+};
 
 pub struct PlayerEnterExecuteCommand {
-    player_id: u64,
-    player: Cluster,
+    user_id: u64,
+    tx: oneshot::Sender<Option<u64>>,
 }
 
 impl PlayerEnterExecuteCommand {
-    pub fn new(player_id: u64, player: Cluster) -> Self {
-        PlayerEnterExecuteCommand { player_id, player }
+    pub fn new(player_id: u64, tx: oneshot::Sender<Option<u64>>) -> Self {
+        PlayerEnterExecuteCommand {
+            user_id: player_id,
+            tx,
+        }
     }
 }
 
 impl CommandTrait for PlayerEnterExecuteCommand {
     fn execute(self: Box<Self>, zone: &mut crate::zone::zone::Zone) {
-        log::info!("Player {} is executing the zone entry.", self.player_id);
+        log::info!(
+            "Executing PlayerEnterExecuteCommand for player_id: {}",
+            self.user_id
+        );
+
+        let player_cluster = match zone.routeing_players_mut().remove(&self.user_id) {
+            Some(entry) => entry,
+            None => {
+                log::error!(
+                    "Player with id {} is not in routeing players when executing PlayerEnterExecuteCommand",
+                    self.user_id
+                );
+                let _ = self.tx.send(None);
+                return;
+            }
+        };
+
+        let username = player_cluster.player_name().clone();
+        let position = player_cluster.player().position().clone();
+
+        let entity_id = zone.next_entity_id();
+        zone.players_mut().insert(entity_id, player_cluster);
+
+        let clients = zone.tonic_client_mut().get_gateway_clients();
+        let message = PayloadZoneEnterNotification {
+            id: entity_id,
+            username: username,
+            position: Some(crate::generated::proto_client::Vector3 {
+                x: position.x,
+                y: position.y,
+                z: position.z,
+            }),
+        };
+
+        tokio::spawn(async move {
+            for mut client in clients {
+                let _ = client.player_enter(message.clone()).await;
+            }
+        });
+        let _ = self.tx.send(Some(entity_id));
     }
 }

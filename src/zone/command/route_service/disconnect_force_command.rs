@@ -12,24 +12,20 @@ impl DisconnectForceCommand {
     }
 }
 
-impl CommandTrait for DisconnectForceCommand {
-    fn execute(self: Box<Self>, zone: &mut zone::Zone) {
-        log::info!("Forcefully disconnecting player {}.", self.player_id);
-        // ログアウト要求をチャッシュに追加
-        zone.zone_request_chash_mut().push_logout(self.player_id);
+// impl CommandTrait for DisconnectForceCommand {
+//     fn execute(self: Box<Self>, zone: &mut zone::Zone) {
+//         log::info!("Forcefully disconnecting player {}.", self.player_id);
+//         // ログアウト要求をチャッシュに追加
+//         zone.zone_request_chash_mut().push_logout(self.player_id);
 
-        let mut client = zone
-            .tonic_client_mut()
-            .zone_broadcast_service_client
-            .clone();
+//         let clients = zone.tonic_client_mut().get_gateway_clients();
 
-        let message = PayloadZoneExitNotification { id: self.player_id };
+//         let message = PayloadZoneExitNotification { id: self.player_id };
 
-        tokio::spawn(async move {
-            let result = client.player_exit(message).await;
-            if let Err(e) = result {
-                log::error!("Failed to notify player exit: {}", e);
-            }
-        });
-    }
-}
+//         tokio::spawn(async move {
+//             for mut client in clients {
+//                 let _ = client.player_exit(message.clone()).await;
+//             }
+//         });
+//     }
+// }

@@ -4,7 +4,7 @@ use crate::{
     game::entity::player::Player,
     generated::proto_client::PayloadPlayerLoadRequest,
     net::client::Cluster,
-    zone::command::{CommandBox, CommandTrait},
+    zone::command::{CommandBox, CommandTrait, route_service::player_enter_wait_command},
 };
 
 pub struct PlayerEnterBeginCommand {
@@ -44,14 +44,8 @@ impl CommandTrait for PlayerEnterBeginCommand {
                         return None;
                     };
 
-                    let Some(position) = player_record.position else {
-                        // あるはずのデータがない
-                        log::error!(
-                            "Failed to load player data for user_id {}: No position data",
-                            user_id
-                        );
-                        return None;
-                    };
+                    // Noneの場合(キャラクリ時はこれ)、デフォルト値にスポーン
+                    let position = player_record.position.unwrap_or_default();
 
                     let player = Cluster::new(
                         Player::new(
@@ -63,11 +57,9 @@ impl CommandTrait for PlayerEnterBeginCommand {
                         player_record.username,
                     );
 
-                    return Some(Box::new(
-                        super::player_enter_execute_command::PlayerEnterExecuteCommand::new(
-                            user_id, player,
-                        ),
-                    ) as CommandBox);
+                    return Some(Box::new(player_enter_wait_command::PlayerEnterWait::new(
+                        user_id, player,
+                    )) as CommandBox);
                 }
                 Err(e) => {
                     log::error!(

@@ -20,10 +20,7 @@ impl CommandTrait for SpawnEnemyCommand {
         // クライアント通知
         log::info!("Spawning enemy with ID {}.", self.enemy_id);
 
-        let mut client = zone
-            .tonic_client_mut()
-            .zone_broadcast_service_client
-            .clone();
+        let clients = zone.tonic_client_mut().get_gateway_clients();
 
         let message = PayloadEnemySpawn {
             id: self.enemy_id,
@@ -36,8 +33,10 @@ impl CommandTrait for SpawnEnemyCommand {
         };
 
         tokio::spawn(async move {
-            if let Err(e) = client.enemy_spawn(message).await {
-                log::error!("Failed to send enemy spawn notification: {}", e);
+            for mut client in clients {
+                if let Err(e) = client.enemy_spawn(message.clone()).await {
+                    log::error!("Failed to send enemy spawn notification: {}", e);
+                }
             }
         });
     }

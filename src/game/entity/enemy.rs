@@ -6,6 +6,7 @@ use crate::game::action::action_list::ActionList;
 use super::entity::{Entity, PlayActionError, PlayActionOk};
 use super::entity_id::EntityId;
 
+#[allow(dead_code)]
 pub struct Enemy {
     id: EntityId,
     name: String,

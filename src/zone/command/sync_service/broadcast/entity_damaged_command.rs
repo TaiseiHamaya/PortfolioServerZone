@@ -34,10 +34,7 @@ impl CommandTrait for DamagedEntityCommand {
 
         entity.on_damaged(self.damage);
 
-        let mut client = zone
-            .tonic_client_mut()
-            .zone_broadcast_service_client
-            .clone();
+        let clients = zone.tonic_client_mut().get_gateway_clients();
 
         let message = PayloadEntityDamaged {
             entity_id: self.target_id,
@@ -45,8 +42,10 @@ impl CommandTrait for DamagedEntityCommand {
         };
 
         tokio::spawn(async move {
-            if let Err(e) = client.entity_damaged(message).await {
-                log::error!("Failed to send damage notification: {}", e);
+            for mut client in clients {
+                if let Err(e) = client.entity_damaged(message.clone()).await {
+                    log::error!("Failed to send damage notification: {}", e);
+                }
             }
         });
     }
