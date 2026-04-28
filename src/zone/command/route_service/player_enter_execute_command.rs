@@ -41,10 +41,14 @@ impl CommandTrait for PlayerEnterExecuteCommand {
         let username = player_cluster.player_name().clone();
         let position = player_cluster.player().position().clone();
 
+        zone.gateway_clients_mut().on_enter_player(&player_cluster);
+
         let entity_id = zone.next_entity_id();
         zone.players_mut().insert(entity_id, player_cluster);
+        zone.player_id_by_user_id_mut()
+            .insert(self.user_id, entity_id);
 
-        let clients = zone.tonic_client_mut().get_gateway_clients();
+        let clients = zone.gateway_clients().clients_vec();
         let message = PayloadZoneEnterNotification {
             id: entity_id,
             username: username,

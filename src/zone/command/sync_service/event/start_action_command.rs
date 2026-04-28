@@ -77,7 +77,7 @@ impl CommandTrait for StartActionCommand {
             dmg
         );
 
-        let clients = zone.tonic_client_mut().get_gateway_clients();
+        let clients = zone.gateway_clients().clients_vec();
 
         let play_action_message = PayloadPlayAction {
             id: self.id,

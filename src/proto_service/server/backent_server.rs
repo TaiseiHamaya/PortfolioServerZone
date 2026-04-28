@@ -17,10 +17,7 @@ pub struct BackendServerReceiver {
     pub sync_command_receiver: mpsc::Receiver<CommandBox>,
 }
 
-pub async fn create_backend_server_receiver(
-    channel_size: usize,
-    port: u16,
-) -> BackendServerReceiver {
+pub async fn create_grpc_service(channel_size: usize, port: u16) -> BackendServerReceiver {
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), port);
 
     let (world_route_sender, world_command_receiver) = mpsc::channel::<CommandBox>(channel_size);

@@ -4,6 +4,7 @@ use crate::zone::command::CommandTrait;
 
 use crate::{game::entity::entity::Entity, zone::zone};
 
+#[allow(dead_code)]
 pub struct SyncTransformCommand {
     entity_id: u64,
     position: Point3<f32>,

@@ -1,10 +1,6 @@
-use crate::game::entity::player::Player;
 use crate::net::client::Cluster;
 use crate::zone::command::CommandTrait;
-
-use crate::{
-    game::entity::entity::Entity, generated::proto_client::PayloadZoneEnterNotification, zone::zone,
-};
+use crate::zone::zone;
 
 pub struct PlayerEnterWait {
     player_id: u64,

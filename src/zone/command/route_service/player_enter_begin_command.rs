@@ -9,11 +9,15 @@ use crate::{
 
 pub struct PlayerEnterBeginCommand {
     user_id: u64,
+    gateway_id: u64,
 }
 
 impl PlayerEnterBeginCommand {
-    pub fn new(user_id: u64) -> Self {
-        PlayerEnterBeginCommand { user_id }
+    pub fn new(user_id: u64, gateway_id: u64) -> Self {
+        PlayerEnterBeginCommand {
+            user_id,
+            gateway_id,
+        }
     }
 }
 
@@ -27,6 +31,7 @@ impl CommandTrait for PlayerEnterBeginCommand {
             .clone();
 
         let user_id = self.user_id;
+        let gateway_id = self.gateway_id;
 
         // ロードしてコマンド化するタスク
         let task = async move {
@@ -55,6 +60,7 @@ impl CommandTrait for PlayerEnterBeginCommand {
                             10000,
                         ),
                         player_record.username,
+                        gateway_id,
                     );
 
                     return Some(Box::new(player_enter_wait_command::PlayerEnterWait::new(

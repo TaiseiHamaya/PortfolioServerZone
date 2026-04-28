@@ -1,6 +1,5 @@
 use tokio::sync::{mpsc, oneshot};
 
-use crate::game::entity::entity_id;
 use crate::generated::proto_server::PayloadPlayerZoneEnterCompleteResponse;
 use crate::zone::command::{CommandBox, route_service::*};
 
@@ -29,10 +28,11 @@ impl WorldRouteService for WorldRouteServiceImpl {
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let payload = request.into_inner();
         let user_id = payload.user_id;
+        let gateway_id = payload.gateway_id;
         match self
             .command_sender
             .send(Box::new(
-                player_enter_begin_command::PlayerEnterBeginCommand::new(user_id),
+                player_enter_begin_command::PlayerEnterBeginCommand::new(user_id, gateway_id),
             ))
             .await
         {

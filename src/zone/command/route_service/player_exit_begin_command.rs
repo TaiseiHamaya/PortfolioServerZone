@@ -3,9 +3,7 @@ use crate::{
     generated::proto_client::{self, PayloadPlayerRecord, PayloadPlayerSaveRequest},
     zone::command::{
         CommandBox, CommandTrait,
-        route_service::{
-            player_enter_execute_command, player_exit_wait_command, player_route_failed_fallback,
-        },
+        route_service::{player_exit_wait_command, player_route_failed_fallback},
     },
 };
 
@@ -29,11 +27,21 @@ impl CommandTrait for PlayerExitBeginCommand {
             .clone();
 
         let user_id = self.user_id;
-        let player_cluster = match zone.players_mut().remove(&user_id) {
+        let entity_id = match zone.player_id_by_user_id_mut().remove(&user_id) {
+            Some(entity_id) => entity_id,
+            None => {
+                log::error!(
+                    "Player with user_id:{} is not in player_id_by_user_id when executing PlayerExitBeginCommand",
+                    user_id
+                );
+                return;
+            }
+        };
+        let player_cluster = match zone.players_mut().remove(&entity_id) {
             Some(cluster) => cluster,
             None => {
                 log::error!(
-                    "Player with id {} is not in players when executing PlayerExitBeginCommand",
+                    "Player with user_id:{} is not in players when executing PlayerExitBeginCommand",
                     user_id
                 );
                 return;

@@ -20,7 +20,7 @@ impl CommandTrait for SpawnEnemyCommand {
         // クライアント通知
         log::info!("Spawning enemy with ID {}.", self.enemy_id);
 
-        let clients = zone.tonic_client_mut().get_gateway_clients();
+        let clients = zone.gateway_clients().clients_vec();
 
         let message = PayloadEnemySpawn {
             id: self.enemy_id,

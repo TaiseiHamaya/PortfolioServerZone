@@ -1,6 +1,8 @@
 use dotenvy::dotenv;
 
 mod app;
+mod ec2_helper;
+mod etcd_client_helper;
 mod game;
 mod generated;
 mod logger;

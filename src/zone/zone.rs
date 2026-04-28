@@ -8,23 +8,29 @@ use crate::generated::proto_client::{PayloadTransformSync, Vector3};
 use crate::proto_service::{
     client::backend_client::BackendClient, server::backent_server::BackendServerReceiver,
 };
+use crate::zone::gateway_clients::GatewayClients;
 use crate::{
     game::{contents::containts_director::ContaintsDirector, entity::entity::Entity},
     net::client::{self},
 };
 
 pub struct Zone {
+    #[allow(dead_code)]
     name: String,
     id: u64,
     next_use_entity_id: u64,
 
     players: HashMap<u64, client::Cluster>,
     routeing_players: HashMap<u64, client::Cluster>,
+    player_id_by_user_id: HashMap<u64, u64>,
 
     contains_directors: Vec<ContaintsDirector>,
 
+    gateway_clients: GatewayClients,
+
     backend_client: BackendClient,
     backend_server_receiver: BackendServerReceiver,
+
     async_tasks: tokio::task::JoinSet<Option<CommandBox>>,
 }
 
@@ -34,16 +40,23 @@ impl Zone {
         backend_client: BackendClient,
         backend_server_receiver: BackendServerReceiver,
     ) -> Self {
+        let channels = backend_client.zone_broadcast_service_clients.clone();
         Zone {
             name,
             id: 0,
             next_use_entity_id: 0,
+
             players: HashMap::new(),
             routeing_players: HashMap::new(),
+            player_id_by_user_id: HashMap::new(),
+
             contains_directors: Vec::new(),
+
+            gateway_clients: GatewayClients::new(channels),
 
             backend_client,
             backend_server_receiver,
+
             async_tasks: tokio::task::JoinSet::new(),
         }
     }
@@ -175,7 +188,7 @@ impl Zone {
 
     // 位置の同期をクライアントに通知
     pub fn sync_entity_transform(&mut self, entity_id: u64, timestamp: u64, position: Point3<f32>) {
-        let clients = self.backend_client.get_gateway_clients();
+        let clients = self.gateway_clients.clients_vec();
         let message = PayloadTransformSync {
             id: entity_id,
             timestamp,
@@ -211,12 +224,30 @@ impl Zone {
         &mut self.routeing_players
     }
 
+    pub fn player_id_by_user_id_mut(&mut self) -> &mut HashMap<u64, u64> {
+        &mut self.player_id_by_user_id
+    }
+
+    pub fn player_mut_by_user_id(&mut self, user_id: &u64) -> Option<&mut client::Cluster> {
+        let player_id = self.player_id_by_user_id.get(user_id)?;
+        self.players.get_mut(player_id)
+    }
+
+    #[allow(dead_code)]
     pub fn contains_director_mut(&mut self, index: usize) -> Option<&mut ContaintsDirector> {
         self.contains_directors.get_mut(index)
     }
 
     pub fn tonic_client_mut(&mut self) -> &mut BackendClient {
         &mut self.backend_client
+    }
+
+    pub fn gateway_clients(&self) -> &GatewayClients {
+        &self.gateway_clients
+    }
+
+    pub fn gateway_clients_mut(&mut self) -> &mut GatewayClients {
+        &mut self.gateway_clients
     }
 
     pub fn entity_mut(&mut self, entity_id: &u64) -> Option<&mut dyn Entity> {

@@ -1,28 +1,33 @@
-use etcd_client::{PutOptions, WatchOptions};
 use log;
-use std::{env, net::Ipv4Addr, time::Duration};
+use std::{
+    env,
+    net::{IpAddr, SocketAddr},
+    time::Duration,
+};
 use ticktock;
+use tonic::transport::{Endpoint, channel};
 
 use super::tick_time;
 
 use crate::{
+    ec2_helper, etcd_client_helper,
     game::action::action_list_table,
-    generated::proto_client::zone_broadcast_service_client::ZoneBroadcastServiceClient,
     proto_service::{client::backend_client::BackendClient, server::backent_server},
     zone::zone::Zone,
 };
 
 pub async fn run() {
     // 初期化
-    let server_ip = env::var("LISTEN_ADDR").unwrap_or_else(|_| Ipv4Addr::LOCALHOST.to_string());
+    let server_address = ec2_helper::get_local_ip().await;
     let port = env::var("PORT")
         .unwrap_or_else(|_| "50053".into())
         .parse()
         .unwrap_or(50053u16);
     let zone_id = env::var("ZONE_ID").unwrap_or_else(|_| "0".into());
+    let listen_endpoint = SocketAddr::new(IpAddr::V4(server_address), port);
 
-    // serverの起動
-    let backend_server_receiver = backent_server::create_backend_server_receiver(
+    // grpc serverの起動
+    let backend_server_receiver = backent_server::create_grpc_service(
         env::var("COMMAND_CHANNEL_SIZE")
             .unwrap_or_else(|_| "128".into())
             .parse()
@@ -31,10 +36,7 @@ pub async fn run() {
     )
     .await;
 
-    // 各種サーバーへの接続
-    let backend_client = BackendClient::new().await;
-
-    // etcdにゾーンの情報を登録
+    // etcd clientと接続
     let etcd_client = etcd_client::Client::connect(
         [format!(
             "{}:2379",
@@ -44,99 +46,106 @@ pub async fn run() {
     )
     .await
     .expect("Failed to connect to etcd server");
-    let mut etcd_client_checker = etcd_client.clone();
-    let mut etcd_client_keeper = etcd_client.clone();
 
-    // ゾーンの情報をetcdに登録し、定期的に更新する
-    tokio::spawn(async move {
-        let lease = etcd_client_keeper
-            .lease_grant(5, None)
+    let db_server_addr =
+        etcd_client_helper::get_existing_service_endpoint(etcd_client.clone(), "db".to_string())
             .await
-            .expect("Failed to create etcd lease");
-        let options = PutOptions::new().with_lease(lease.id());
-        etcd_client_keeper
-            .put(
-                format!("zones/{}", zone_id),
-                format!("{}:{}", server_ip, port),
-                Some(options),
-            )
+            .map(|kv| ["http://", &String::from_utf8_lossy(kv.value())].concat())
+            .unwrap_or_else(|| format!("http://127.0.0.1:{}", 50050));
+
+    let world_server_addr =
+        etcd_client_helper::get_existing_service_endpoint(etcd_client.clone(), "world".to_string())
             .await
-            .expect("Failed to put zone info into etcd");
+            .map(|kv| ["http://", &String::from_utf8_lossy(kv.value())].concat())
+            .unwrap_or_else(|| format!("http://127.0.0.1:{}", 50051));
 
-        loop {
-            etcd_client_keeper
-                .lease_keep_alive(lease.id())
-                .await
-                .expect("Failed to keep alive etcd lease");
-            log::info!("Updated zone info in etcd with lease ID {}", lease.id());
+    // 各種サーバーへの接続
+    let backend_client = BackendClient::new(
+        Endpoint::from_shared(world_server_addr).expect("Invalid world server address"),
+        Endpoint::from_shared(db_server_addr).expect("Invalid DB server address"),
+    )
+    .await;
 
-            tokio::time::sleep(Duration::from_secs(3)).await;
-        }
-    });
+    let _lease_task = etcd_client_helper::register_service_endpoint(
+        etcd_client.clone(),
+        listen_endpoint,
+        format!("zones/{}", zone_id),
+    )
+    .await;
 
-    // gatewayサーバーの情報を取得
-    let backend_client_clone = backend_client.clone();
-    tokio::spawn(async move {
-        let prefix = "gateways/";
-        let config = WatchOptions::new().with_prefix();
-        let mut stream = etcd_client_checker
-            .watch(prefix, Some(config))
-            .await
-            .expect("Failed to watch etcd for gateway changes");
-        loop {
-            match stream.message().await {
-                Ok(Some(response)) => {
-                    for event in response.events() {
-                        match event.event_type() {
-                            etcd_client::EventType::Put => {
-                                if let Some(kv) = event.kv() {
-                                    let gateway_id = String::from_utf8_lossy(kv.key())
-                                        .strip_prefix(prefix)
-                                        .unwrap_or_default()
-                                        .parse::<u64>()
-                                        .unwrap_or_default();
-                                    let url = String::from_utf8_lossy(kv.value())
-                                        .parse::<String>()
-                                        .unwrap_or_default();
+    let broadcast_service_clients = backend_client.zone_broadcast_service_clients.clone();
+    etcd_client_helper::watch_changes(etcd_client.clone(), "gateways/", move |event| {
+        let Some(kv) = event.kv() else {
+            log::warn!("Received watch event without KV: {:?}", event);
+            return;
+        };
+        let gateway_id = match String::from_utf8_lossy(kv.key())
+            .strip_prefix("gateways/")
+            .map(|id_str| id_str.parse::<u64>())
+        {
+            Some(Ok(id)) => id,
+            _ => {
+                log::warn!(
+                    "Invalid gateway key format: {}",
+                    String::from_utf8_lossy(kv.key())
+                );
+                return;
+            }
+        };
+        let uri = ["http://", &String::from_utf8_lossy(kv.value())].concat();
 
-                                    let Ok(client) = ZoneBroadcastServiceClient::connect(format!(
-                                        "http://{}",
-                                        url
-                                    ))
-                                    .await
-                                    else {
-                                        log::error!("Failed to connect to gateway at {}", url);
-                                        continue;
-                                    };
-
-                                    backend_client_clone
-                                        .add_gateway_client(gateway_id, client)
-                                        .await;
-
-                                    log::info!("Added gateway client: {} -> {}", gateway_id, url);
-                                }
-                            }
-                            etcd_client::EventType::Delete => {
-                                if let Some(kv) = event.kv() {
-                                    let gateway_id = String::from_utf8_lossy(kv.key())
-                                        .strip_prefix(prefix)
-                                        .unwrap_or_default()
-                                        .parse::<u64>()
-                                        .unwrap_or_default();
-
-                                    backend_client_clone.remove_gateway_client(gateway_id).await;
-                                    log::info!("Removed gateway client: {}", gateway_id);
-                                }
-                            }
-                        }
+        match event.event_type() {
+            etcd_client::EventType::Put => {
+                log::info!("Gateway added/updated: ID={}, URI={}", gateway_id, uri);
+                let channel = match channel::Endpoint::from_shared(uri.clone())
+                    .map(|endpoint| endpoint.connect_lazy())
+                {
+                    Ok(ch) => ch,
+                    Err(e) => {
+                        log::error!("Failed to create channel for gateway {}: {}", gateway_id, e);
+                        return;
                     }
-                }
-                _ => {
-                    log::error!("Failed to receive etcd watch message");
-                }
+                };
+                broadcast_service_clients.insert(gateway_id, channel);
+            }
+            etcd_client::EventType::Delete => {
+                log::info!("Gateway removed: ID={}", gateway_id);
+                broadcast_service_clients.remove(&gateway_id);
             }
         }
-    });
+    })
+    .await;
+
+    let broadcast_service_clients = backend_client.zone_broadcast_service_clients.clone();
+    etcd_client_helper::get_existing_service_endpoint_prefix(
+        etcd_client.clone(),
+        Some("zones/"),
+        move |key, value| {
+            log::info!(
+                "Received zone endpoint update: key={}, value={}",
+                key,
+                value
+            );
+            let zone_id = match key.strip_prefix("zones/").map(|v| v.parse::<u64>()) {
+                Some(Ok(id)) => id,
+                _ => {
+                    log::warn!("Invalid zone key format: {}", key);
+                    return;
+                }
+            };
+            let uri = ["http://", &value].concat();
+            let channel =
+                match channel::Endpoint::from_shared(uri).map(|endpoint| endpoint.connect_lazy()) {
+                    Ok(ch) => ch,
+                    Err(e) => {
+                        log::error!("Failed to create channel for zone {}: {}", zone_id, e);
+                        return;
+                    }
+                };
+            broadcast_service_clients.insert(zone_id, channel);
+        },
+    )
+    .await;
 
     // ActionListTableをDBから読む
     action_list_table::ActionListTable::load_from_database();

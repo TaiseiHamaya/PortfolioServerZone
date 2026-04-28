@@ -1,10 +1,6 @@
 use tokio::sync::oneshot;
 
-use crate::{
-    game::entity::entity::Entity,
-    generated::proto_client::{PayloadZoneEnterNotification, PayloadZoneExitNotification},
-    zone::command::CommandTrait,
-};
+use crate::{generated::proto_client::PayloadZoneExitNotification, zone::command::CommandTrait};
 
 pub struct PlayerExitExecuteCommand {
     player_id: u64,
@@ -24,8 +20,8 @@ impl CommandTrait for PlayerExitExecuteCommand {
             self.player_id
         );
 
-        match zone.routeing_players_mut().remove(&self.player_id) {
-            Some(entry) => entry,
+        let cluster = match zone.routeing_players_mut().remove(&self.player_id) {
+            Some(cluster) => cluster,
             None => {
                 log::error!(
                     "Player with id {} is not in routeing players when executing PlayerExitExecuteCommand",
@@ -36,7 +32,10 @@ impl CommandTrait for PlayerExitExecuteCommand {
             }
         };
 
-        let clients = zone.tonic_client_mut().get_gateway_clients();
+        let clients = zone.gateway_clients().clients_vec();
+
+        zone.gateway_clients_mut().on_exit_player(&cluster);
+
         let message = PayloadZoneExitNotification { id: self.player_id };
 
         let _ = self.tx.send(true);

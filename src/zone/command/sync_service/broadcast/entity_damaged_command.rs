@@ -2,6 +2,7 @@ use crate::zone::command::CommandTrait;
 
 use crate::{generated::proto_client::PayloadEntityDamaged, zone::zone};
 
+#[allow(dead_code)]
 pub struct DamagedEntityCommand {
     attacker_id: u64,
     target_id: u64,
@@ -34,7 +35,7 @@ impl CommandTrait for DamagedEntityCommand {
 
         entity.on_damaged(self.damage);
 
-        let clients = zone.tonic_client_mut().get_gateway_clients();
+        let clients = zone.gateway_clients().clients_vec();
 
         let message = PayloadEntityDamaged {
             entity_id: self.target_id,

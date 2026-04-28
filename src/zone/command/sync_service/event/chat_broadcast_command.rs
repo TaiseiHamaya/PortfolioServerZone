@@ -21,7 +21,7 @@ impl CommandTrait for ChatBroadcastCommand {
             self.message
         );
 
-        let clients = zone.tonic_client_mut().get_gateway_clients();
+        let clients = zone.gateway_clients().clients_vec();
 
         let message = PayloadTextMessage {
             id: self.id,

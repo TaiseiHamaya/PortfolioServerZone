@@ -1,3 +1,5 @@
+#![allow(dead_code, unused_imports)]
+
 use crate::zone::command::CommandTrait;
 
 use crate::{generated::proto_client::PayloadZoneExitNotification, zone::zone};

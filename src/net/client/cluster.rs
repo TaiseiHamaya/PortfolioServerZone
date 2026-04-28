@@ -5,14 +5,17 @@ pub struct Cluster {
     player: Player,
     name: String,
 
+    gateway_id: u64,
+
     command_buffers: Vec<CommandBox>,
 }
 
 impl Cluster {
-    pub fn new(player: Player, name: String) -> Self {
+    pub fn new(player: Player, name: String, gateway_id: u64) -> Self {
         Cluster {
             player,
             name,
+            gateway_id,
             command_buffers: Vec::new(),
         }
     }
@@ -40,5 +43,9 @@ impl Cluster {
 
     pub fn player_mut(&mut self) -> &mut Player {
         &mut self.player
+    }
+
+    pub fn gateway_id(&self) -> u64 {
+        self.gateway_id
     }
 }
