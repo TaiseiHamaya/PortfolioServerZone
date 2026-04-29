@@ -1,6 +1,8 @@
 use tokio::sync::{mpsc, oneshot};
 
-use crate::generated::proto_server::PayloadPlayerZoneEnterCompleteResponse;
+use crate::generated::proto_server::{
+    PayloadPlayerZoneEnterCompleteResponse, RoutePlayerData, Vector3,
+};
 use crate::zone::command::{CommandBox, route_service::*};
 
 use crate::generated::proto_server::{
@@ -104,11 +106,23 @@ impl WorldRouteService for WorldRouteServiceImpl {
             .await
         {
             Ok(()) => match rx.await {
-                Ok(entity_id_opt) => {
+                Ok(Some((entity_id, position))) => {
                     return Ok(tonic::Response::new(
                         PayloadPlayerZoneEnterCompleteResponse {
-                            player_entity_id: entity_id_opt,
+                            player_data: Some(RoutePlayerData {
+                                player_entity_id: entity_id,
+                                position: Some(Vector3 {
+                                    x: position.x,
+                                    y: position.y,
+                                    z: position.z,
+                                }),
+                            }),
                         },
+                    ));
+                }
+                Ok(None) => {
+                    return Ok(tonic::Response::new(
+                        PayloadPlayerZoneEnterCompleteResponse { player_data: None },
                     ));
                 }
                 Err(e) => {
