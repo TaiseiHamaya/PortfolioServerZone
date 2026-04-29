@@ -28,13 +28,13 @@ impl CommandTrait for ChatBroadcastCommand {
             message: self.message.clone(),
         };
 
-        tokio::spawn(async move {
-            for mut client in clients {
-                let result = client.send_chat(message.clone()).await;
-                if let Err(e) = result {
+        for mut client in clients {
+            let message_clone = message.clone();
+            tokio::spawn(async move {
+                if let Err(e) = client.send_chat(message_clone).await {
                     log::error!("Failed to broadcast chat message: {}", e);
                 }
-            }
-        });
+            });
+        }
     }
 }

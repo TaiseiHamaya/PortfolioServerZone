@@ -39,10 +39,14 @@ impl CommandTrait for PlayerExitExecuteCommand {
         let message = PayloadZoneExitNotification { id: self.player_id };
 
         let _ = self.tx.send(true);
-        tokio::spawn(async move {
-            for mut client in clients {
-                let _ = client.player_exit(message.clone()).await;
-            }
-        });
+
+        for mut client in clients {
+            let message_clone = message.clone();
+            tokio::spawn(async move {
+                if let Err(e) = client.player_exit(message_clone).await {
+                    log::error!("Failed to send player exit message: {}", e);
+                }
+            });
+        }
     }
 }

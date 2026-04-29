@@ -32,12 +32,13 @@ impl CommandTrait for SpawnEnemyCommand {
             }),
         };
 
-        tokio::spawn(async move {
-            for mut client in clients {
-                if let Err(e) = client.enemy_spawn(message.clone()).await {
+        for mut client in clients {
+            let message_clone = message.clone();
+            tokio::spawn(async move {
+                if let Err(e) = client.enemy_spawn(message_clone).await {
                     log::error!("Failed to send enemy spawn notification: {}", e);
                 }
-            }
-        });
+            });
+        }
     }
 }

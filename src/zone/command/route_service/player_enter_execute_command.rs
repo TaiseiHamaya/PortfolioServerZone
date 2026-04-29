@@ -59,11 +59,15 @@ impl CommandTrait for PlayerEnterExecuteCommand {
             }),
         };
 
-        tokio::spawn(async move {
-            for mut client in clients {
-                let _ = client.player_enter(message.clone()).await;
-            }
-        });
         let _ = self.tx.send(Some(entity_id));
+
+        for mut client in clients {
+            let message_clone = message.clone();
+            tokio::spawn(async move {
+                if let Err(e) = client.player_enter(message_clone).await {
+                    log::error!("Failed to send player enter message: {}", e);
+                }
+            });
+        }
     }
 }

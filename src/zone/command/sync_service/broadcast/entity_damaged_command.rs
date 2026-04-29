@@ -42,12 +42,13 @@ impl CommandTrait for DamagedEntityCommand {
             damage: self.damage,
         };
 
-        tokio::spawn(async move {
-            for mut client in clients {
-                if let Err(e) = client.entity_damaged(message.clone()).await {
+        for mut client in clients {
+            let message_clone = message.clone();
+            tokio::spawn(async move {
+                if let Err(e) = client.entity_damaged(message_clone).await {
                     log::error!("Failed to send damage notification: {}", e);
                 }
-            }
-        });
+            });
+        }
     }
 }
