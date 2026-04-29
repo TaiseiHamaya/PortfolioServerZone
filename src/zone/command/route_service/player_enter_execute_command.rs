@@ -43,7 +43,7 @@ impl CommandTrait for PlayerEnterExecuteCommand {
 
         zone.gateway_clients_mut().on_enter_player(&player_cluster);
 
-        let entity_id = zone.next_entity_id();
+        let entity_id = player_cluster.entity_id();
         zone.players_mut().insert(entity_id, player_cluster);
         zone.player_id_by_user_id_mut()
             .insert(self.user_id, entity_id);

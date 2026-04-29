@@ -22,6 +22,11 @@ impl CommandTrait for PlayerRouteFailedFallback {
         zone.routeing_players_mut().remove(&self.user_id);
 
         if let Some(cluster) = self.cluster {
+            log::info!(
+                "Re-adding player {}({}) to the zone after route failure.",
+                cluster.entity_id(),
+                cluster.player_name()
+            );
             zone.players_mut().insert(self.user_id, cluster);
         }
     }

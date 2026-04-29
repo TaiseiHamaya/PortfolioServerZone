@@ -5,16 +5,19 @@ pub struct Cluster {
     player: Player,
     name: String,
 
+    #[allow(dead_code)]
+    user_id: u64,
     gateway_id: u64,
 
     command_buffers: Vec<CommandBox>,
 }
 
 impl Cluster {
-    pub fn new(player: Player, name: String, gateway_id: u64) -> Self {
+    pub fn new(player: Player, name: String, user_id: u64, gateway_id: u64) -> Self {
         Cluster {
             player,
             name,
+            user_id,
             gateway_id,
             command_buffers: Vec::new(),
         }
@@ -29,8 +32,8 @@ impl Cluster {
         commands
     }
 
-    pub fn id(&self) -> u64 {
-        self.player.id()
+    pub fn entity_id(&self) -> u64 {
+        self.player.entity_id()
     }
 
     pub fn player_name(&self) -> &String {
@@ -43,6 +46,11 @@ impl Cluster {
 
     pub fn player_mut(&mut self) -> &mut Player {
         &mut self.player
+    }
+
+    #[allow(dead_code)]
+    pub fn user_id(&self) -> u64 {
+        self.user_id
     }
 
     pub fn gateway_id(&self) -> u64 {

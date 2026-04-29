@@ -3,10 +3,9 @@ use chrono::{TimeZone, offset::LocalResult};
 use crate::game::action::action_list_table::ACTION_LIST_TABLE;
 use crate::zone::command::CommandTrait;
 
+use crate::zone::command::sync_service::broadcast::entity_damaged_command::DamagedEntityCommand;
 use crate::{
-    game::entity::entity::PlayActionOk,
-    generated::proto_client::{PayloadEntityDamaged, PayloadPlayAction},
-    zone::zone,
+    game::entity::entity::PlayActionOk, generated::proto_client::PayloadPlayAction, zone::zone,
 };
 
 pub struct StartActionCommand {
@@ -31,7 +30,7 @@ impl CommandTrait for StartActionCommand {
     fn execute(self: Box<Self>, zone: &mut zone::Zone) {
         log::info!("Entity {} begins action {}.", self.id, self.action_id);
 
-        // 攻撃者の取得
+        // 使用者の取得
         let Some(entity_player) = zone.entity_mut(&self.id) else {
             log::warn!("Entity {} not found in zone.", self.id);
             return;
@@ -60,22 +59,22 @@ impl CommandTrait for StartActionCommand {
         };
 
         // ターゲットの取得
-        let Some(entity_target) = zone.entity_mut(&self.target_id) else {
+        if zone.entity_mut(&self.target_id).is_none() {
             log::warn!("Target entity {} not found in zone.", self.target_id);
             return;
+        }
+
+        let action_result_command = match action_result {
+            PlayActionOk::Damage(dmg) => {
+                Box::new(DamagedEntityCommand::new(self.id, self.target_id, dmg))
+                    as Box<dyn CommandTrait>
+            }
+            PlayActionOk::Heal(heal) => {
+                // Healの処理はここに追加
+                log::info!("Entity {} healed for {} hit points.", self.target_id, heal);
+                return;
+            }
         };
-
-        // targetにダメージを与える
-        let PlayActionOk::Damage(dmg) = action_result;
-        entity_target.on_damaged(dmg);
-
-        // log
-        log::info!(
-            "Entity {} performed action {} and dealt {} damage.",
-            self.id,
-            self.action_id,
-            dmg
-        );
 
         let clients = zone.gateway_clients().clients_vec();
 
@@ -86,21 +85,15 @@ impl CommandTrait for StartActionCommand {
             timestamp: self.timestamp,
         };
 
-        let entity_damaged_message = PayloadEntityDamaged {
-            entity_id: self.target_id,
-            damage: dmg,
-        };
-
-        tokio::spawn(async move {
-            for mut client in clients {
-                if let Err(e) = client.play_action(play_action_message.clone()).await {
+        for mut client in clients {
+            let message_clone = play_action_message.clone();
+            tokio::spawn(async move {
+                if let Err(e) = client.play_action(message_clone).await {
                     log::error!("Failed to send play action message: {}", e);
-                    continue;
                 }
-                if let Err(e) = client.entity_damaged(entity_damaged_message.clone()).await {
-                    log::error!("Failed to send entity damaged message: {}", e);
-                }
-            }
-        });
+            });
+        }
+
+        zone.add_zone_command(action_result_command);
     }
 }

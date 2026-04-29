@@ -33,6 +33,8 @@ impl CommandTrait for PlayerEnterBeginCommand {
         let user_id = self.user_id;
         let gateway_id = self.gateway_id;
 
+        let entity_id = zone.next_entity_id();
+
         // ロードしてコマンド化するタスク
         let task = async move {
             match db // DBから読み取り
@@ -54,12 +56,12 @@ impl CommandTrait for PlayerEnterBeginCommand {
 
                     let player = Cluster::new(
                         Player::new(
-                            0,
-                            user_id,
+                            entity_id,
                             Point3::new(position.x, position.y, position.z),
                             10000,
                         ),
                         player_record.username,
+                        user_id,
                         gateway_id,
                     );
 

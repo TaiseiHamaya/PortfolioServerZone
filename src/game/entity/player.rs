@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use chrono::{self, DateTime};
+use chrono::{self};
 use nalgebra::Point3;
 use rand::{self, RngExt};
 
@@ -13,7 +13,6 @@ use crate::game::action::{self, action_list::ActionList};
 
 pub struct Player {
     entity_id: EntityId,
-    user_id: u64,
 
     position: Point3<f32>,
     radius: f32,
@@ -44,7 +43,7 @@ impl Entity for Player {
     fn radius(&self) -> f32 {
         self.radius
     }
-    fn id(&self) -> u64 {
+    fn entity_id(&self) -> u64 {
         self.entity_id.id()
     }
 
@@ -86,10 +85,9 @@ impl Entity for Player {
 }
 
 impl Player {
-    pub fn new(entity_id: u64, user_id: u64, position: Point3<f32>, hitpoint: i32) -> Self {
+    pub fn new(entity_id: u64, position: Point3<f32>, hitpoint: i32) -> Self {
         Player {
             entity_id: EntityId::new(entity_id),
-            user_id,
             position,
             radius: 1.0,
             hitpoint,

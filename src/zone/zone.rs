@@ -32,6 +32,7 @@ pub struct Zone {
     backend_server_receiver: BackendServerReceiver,
 
     async_tasks: tokio::task::JoinSet<Option<CommandBox>>,
+    zone_commands: Vec<CommandBox>,
 }
 
 impl Zone {
@@ -58,6 +59,7 @@ impl Zone {
             backend_server_receiver,
 
             async_tasks: tokio::task::JoinSet::new(),
+            zone_commands: Vec::new(),
         }
     }
 
@@ -71,7 +73,7 @@ impl Zone {
 
     pub async fn update(&mut self) {
         // メッセージ処理
-        self.receive_messages().await;
+        self.execute_messages().await;
 
         // 通常更新処理
         self.players.iter_mut().for_each(|(_, cluster)| {
@@ -83,14 +85,11 @@ impl Zone {
             director.update();
         });
 
-        // コマンド処理
-        self.execute_client_commands();
-
         // 位置同期
         self.sync_entity_transform_all();
     }
 
-    async fn receive_messages(&mut self) {
+    async fn execute_messages(&mut self) {
         // クライアントからのsyncコマンド
         let sync_message_len = self.backend_server_receiver.sync_command_receiver.len();
         let mut sync_messages = Vec::with_capacity(sync_message_len);
@@ -98,9 +97,10 @@ impl Zone {
             .sync_command_receiver
             .recv_many(&mut sync_messages, sync_message_len)
             .await;
-        sync_messages.into_iter().for_each(|message| {
-            message.execute(self);
+        sync_messages.into_iter().for_each(|command| {
+            command.execute(self);
         });
+
         // worldからのコマンド
         let world_command_len = self.backend_server_receiver.world_route_receiver.len();
         let mut world_commands = Vec::with_capacity(world_command_len);
@@ -112,35 +112,24 @@ impl Zone {
             command.execute(self);
         });
 
-        // backendから
-        let sync_command_len = self.backend_server_receiver.sync_command_receiver.len();
-        let mut sync_commands = Vec::with_capacity(sync_command_len);
-        self.backend_server_receiver
-            .sync_command_receiver
-            .recv_many(&mut sync_commands, sync_command_len)
-            .await;
-        sync_commands.into_iter().for_each(|command| {
-            command.execute(self);
-        });
-        let world_command_len = self.backend_server_receiver.world_route_receiver.len();
-        let mut world_commands = Vec::with_capacity(world_command_len);
-        self.backend_server_receiver
-            .world_route_receiver
-            .recv_many(&mut world_commands, world_command_len)
-            .await;
-        world_commands.into_iter().for_each(|command| {
+        // クライアントからのコマンドを収集して実行
+        self.execute_client_commands();
+
+        // contents directorから
+        let director_commands = self
+            .contains_directors
+            .iter_mut()
+            .flat_map(|director| director.take_commands())
+            .collect::<Vec<CommandBox>>();
+        director_commands.into_iter().for_each(|command| {
             command.execute(self);
         });
 
-        // クライアントからのコマンドを収集して実行
-        let commnads = self
-            .players
-            .values_mut()
-            .flat_map(|cluster| cluster.take_commands())
-            .collect::<Vec<CommandBox>>();
-        commnads
-            .into_iter()
-            .for_each(|command| command.execute(self));
+        // zone commands
+        let zone_commands = std::mem::take(&mut self.zone_commands);
+        zone_commands.into_iter().for_each(|command| {
+            command.execute(self);
+        });
 
         // chainするタイプのコマンドを実行
         while let Some(result) = self.async_tasks.try_join_next() {
@@ -215,6 +204,10 @@ impl Zone {
         self.async_tasks.spawn(task);
     }
 
+    pub fn add_zone_command(&mut self, command: CommandBox) {
+        self.zone_commands.push(command);
+    }
+
     // ---------- getter ----------
     pub fn players_mut(&mut self) -> &mut HashMap<u64, client::Cluster> {
         &mut self.players
@@ -228,12 +221,13 @@ impl Zone {
         &mut self.player_id_by_user_id
     }
 
+    #[allow(unused)]
     pub fn player_mut_by_user_id(&mut self, user_id: &u64) -> Option<&mut client::Cluster> {
         let player_id = self.player_id_by_user_id.get(user_id)?;
         self.players.get_mut(player_id)
     }
 
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn contains_director_mut(&mut self, index: usize) -> Option<&mut ContaintsDirector> {
         self.contains_directors.get_mut(index)
     }

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use chrono;
 use nalgebra::Point3;
 
@@ -6,7 +8,6 @@ use crate::game::action::action_list::ActionList;
 use super::entity::{Entity, PlayActionError, PlayActionOk};
 use super::entity_id::EntityId;
 
-#[allow(dead_code)]
 pub struct Enemy {
     id: EntityId,
     name: String,
@@ -63,7 +64,7 @@ impl Entity for Enemy {
         self.radius
     }
 
-    fn id(&self) -> u64 {
+    fn entity_id(&self) -> u64 {
         self.id.id()
     }
 
