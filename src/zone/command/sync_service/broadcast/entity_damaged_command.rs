@@ -34,12 +34,14 @@ impl CommandTrait for DamagedEntityCommand {
         };
 
         entity.on_damaged(self.damage);
+        let current_hp = entity.hitpoint();
 
         let clients = zone.gateway_clients().clients_vec();
 
         let message = PayloadEntityDamaged {
             entity_id: self.target_id,
             damage: self.damage,
+            current_hp,
         };
 
         for mut client in clients {

@@ -46,6 +46,9 @@ impl Entity for Player {
     fn entity_id(&self) -> u64 {
         self.entity_id.id()
     }
+    fn hitpoint(&self) -> i32 {
+        self.hitpoint
+    }
 
     fn play_action(
         &mut self,

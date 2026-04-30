@@ -67,6 +67,9 @@ impl Entity for Enemy {
     fn entity_id(&self) -> u64 {
         self.id.id()
     }
+    fn hitpoint(&self) -> i32 {
+        self.hitpoint
+    }
 
     #[allow(unused_variables)]
     fn play_action(

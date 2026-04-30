@@ -27,6 +27,7 @@ pub trait Entity {
     fn position_mut(&mut self) -> &mut Point3<f32>;
     fn radius(&self) -> f32;
     fn entity_id(&self) -> u64;
+    fn hitpoint(&self) -> i32;
 
     fn play_action(
         &mut self,
