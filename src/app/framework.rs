@@ -5,7 +5,7 @@ use std::{
     time::Duration,
 };
 use ticktock;
-use tonic::transport::{Endpoint, channel};
+use tonic::transport::Endpoint;
 
 use super::tick_time;
 
@@ -20,8 +20,8 @@ pub async fn run() {
     // 初期化
     let server_address = ec2_helper::get_local_ip().await;
     let port = env::var("PORT")
-        .unwrap_or_else(|_| "50053".into())
-        .parse()
+        .ok()
+        .and_then(|v| v.parse().ok())
         .unwrap_or(50053u16);
     let zone_id = env::var("ZONE_ID").unwrap_or_else(|_| "0".into());
     let listen_endpoint = SocketAddr::new(IpAddr::V4(server_address), port);
@@ -70,80 +70,6 @@ pub async fn run() {
         etcd_client.clone(),
         listen_endpoint,
         format!("zones/{}", zone_id),
-    )
-    .await;
-
-    let broadcast_service_clients = backend_client.zone_broadcast_service_clients.clone();
-    etcd_client_helper::watch_changes(etcd_client.clone(), "gateways/", move |event| {
-        let Some(kv) = event.kv() else {
-            log::warn!("Received watch event without KV: {:?}", event);
-            return;
-        };
-        let gateway_id = match String::from_utf8_lossy(kv.key())
-            .strip_prefix("gateways/")
-            .map(|id_str| id_str.parse::<u64>())
-        {
-            Some(Ok(id)) => id,
-            _ => {
-                log::warn!(
-                    "Invalid gateway key format: {}",
-                    String::from_utf8_lossy(kv.key())
-                );
-                return;
-            }
-        };
-        let uri = ["http://", &String::from_utf8_lossy(kv.value())].concat();
-
-        match event.event_type() {
-            etcd_client::EventType::Put => {
-                log::info!("Gateway added/updated: ID={}, URI={}", gateway_id, uri);
-                let channel = match channel::Endpoint::from_shared(uri.clone())
-                    .map(|endpoint| endpoint.connect_lazy())
-                {
-                    Ok(ch) => ch,
-                    Err(e) => {
-                        log::error!("Failed to create channel for gateway {}: {}", gateway_id, e);
-                        return;
-                    }
-                };
-                broadcast_service_clients.insert(gateway_id, channel);
-            }
-            etcd_client::EventType::Delete => {
-                log::info!("Gateway removed: ID={}", gateway_id);
-                broadcast_service_clients.remove(&gateway_id);
-            }
-        }
-    })
-    .await;
-
-    let broadcast_service_clients = backend_client.zone_broadcast_service_clients.clone();
-    etcd_client_helper::get_existing_service_endpoint_prefix(
-        etcd_client.clone(),
-        Some("zones/"),
-        move |key, value| {
-            log::info!(
-                "Received zone endpoint update: key={}, value={}",
-                key,
-                value
-            );
-            let zone_id = match key.strip_prefix("zones/").map(|v| v.parse::<u64>()) {
-                Some(Ok(id)) => id,
-                _ => {
-                    log::warn!("Invalid zone key format: {}", key);
-                    return;
-                }
-            };
-            let uri = ["http://", &value].concat();
-            let channel =
-                match channel::Endpoint::from_shared(uri).map(|endpoint| endpoint.connect_lazy()) {
-                    Ok(ch) => ch,
-                    Err(e) => {
-                        log::error!("Failed to create channel for zone {}: {}", zone_id, e);
-                        return;
-                    }
-                };
-            broadcast_service_clients.insert(zone_id, channel);
-        },
     )
     .await;
 

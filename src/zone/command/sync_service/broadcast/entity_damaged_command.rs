@@ -1,6 +1,8 @@
 use crate::zone::command::CommandTrait;
-
-use crate::{generated::proto_client::PayloadEntityDamaged, zone::zone};
+use crate::{
+    generated::proto_server::{BroadcastStream, PayloadEntityDamaged, broadcast_stream},
+    zone::zone,
+};
 
 #[allow(dead_code)]
 pub struct DamagedEntityCommand {
@@ -36,21 +38,15 @@ impl CommandTrait for DamagedEntityCommand {
         entity.on_damaged(self.damage);
         let current_hp = entity.hitpoint();
 
-        let clients = zone.gateway_clients().clients_vec();
-
         let message = PayloadEntityDamaged {
             entity_id: self.target_id,
             damage: self.damage,
             current_hp,
         };
 
-        for mut client in clients {
-            let message_clone = message.clone();
-            tokio::spawn(async move {
-                if let Err(e) = client.entity_damaged(message_clone).await {
-                    log::error!("Failed to send damage notification: {}", e);
-                }
-            });
-        }
+        let message = BroadcastStream {
+            payload: Some(broadcast_stream::Payload::EntityDamaged(message)),
+        };
+        zone.send_broadcast_message(message);
     }
 }

@@ -3,7 +3,10 @@ use tokio::sync::oneshot;
 
 use crate::{
     game::entity::entity::Entity,
-    generated::proto_client::{PayloadZoneEnterNotification, Vector3},
+    generated::proto_server::{
+        BroadcastStream, PayloadClientInitializerData, PayloadZoneEnterNotification, Vector3,
+        broadcast_stream,
+    },
     zone::command::CommandTrait,
 };
 
@@ -40,36 +43,43 @@ impl CommandTrait for PlayerEnterExecuteCommand {
             }
         };
 
+        let gateway_id = player_cluster.gateway_id();
+
         let username = player_cluster.player_name().clone();
         let position = player_cluster.player().position().clone();
-
-        zone.gateway_clients_mut().on_enter_player(&player_cluster);
 
         let entity_id = player_cluster.entity_id();
         zone.players_mut().insert(entity_id, player_cluster);
         zone.player_id_by_user_id_mut()
             .insert(self.user_id, entity_id);
 
-        let clients = zone.gateway_clients().clients_vec();
-        let message = PayloadZoneEnterNotification {
-            id: entity_id,
-            username: username,
-            position: Some(Vector3 {
-                x: position.x,
-                y: position.y,
-                z: position.z,
-            }),
-        };
-
         let _ = self.tx.send(Some((entity_id, position)));
 
-        for mut client in clients {
-            let message_clone = message.clone();
-            tokio::spawn(async move {
-                if let Err(e) = client.player_enter(message_clone).await {
-                    log::error!("Failed to send player enter message: {}", e);
-                }
-            });
-        }
+        // initial data
+        let message = BroadcastStream {
+            payload: Some(broadcast_stream::Payload::ClientInitializerData(
+                PayloadClientInitializerData {
+                    enemies: vec![],
+                    players: vec![],
+                },
+            )),
+        };
+        zone.send_broadcast_message_to_gateway(gateway_id, message);
+
+        // notification
+        let message = BroadcastStream {
+            payload: Some(broadcast_stream::Payload::PlayerEnter(
+                PayloadZoneEnterNotification {
+                    id: entity_id,
+                    username,
+                    position: Some(Vector3 {
+                        x: position.x,
+                        y: position.y,
+                        z: position.z,
+                    }),
+                },
+            )),
+        };
+        zone.send_broadcast_message(message);
     }
 }

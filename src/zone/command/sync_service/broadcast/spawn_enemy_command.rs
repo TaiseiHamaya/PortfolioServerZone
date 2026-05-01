@@ -1,7 +1,7 @@
 use crate::zone::command::CommandTrait;
 
 use crate::{
-    generated::proto_client::{PayloadEnemySpawn, Vector3},
+    generated::proto_server::{BroadcastStream, PayloadEnemySpawn, Vector3, broadcast_stream},
     zone::zone,
 };
 
@@ -20,8 +20,6 @@ impl CommandTrait for SpawnEnemyCommand {
         // クライアント通知
         log::info!("Spawning enemy with ID {}.", self.enemy_id);
 
-        let clients = zone.gateway_clients().clients_vec();
-
         let message = PayloadEnemySpawn {
             id: self.enemy_id,
             name: "".to_string(),
@@ -32,13 +30,10 @@ impl CommandTrait for SpawnEnemyCommand {
             }),
         };
 
-        for mut client in clients {
-            let message_clone = message.clone();
-            tokio::spawn(async move {
-                if let Err(e) = client.enemy_spawn(message_clone).await {
-                    log::error!("Failed to send enemy spawn notification: {}", e);
-                }
-            });
-        }
+        let message = BroadcastStream {
+            payload: Some(broadcast_stream::Payload::EnemySpawn(message)),
+        };
+
+        zone.send_broadcast_message(message);
     }
 }

@@ -2,7 +2,7 @@
 
 use crate::zone::command::CommandTrait;
 
-use crate::{generated::proto_client::PayloadZoneExitNotification, zone::zone};
+//use crate::{generated::proto_client::PayloadZoneExitNotification, zone::zone};
 
 pub struct DisconnectForceCommand {
     player_id: u64,

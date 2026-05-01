@@ -18,6 +18,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .compile_protos(
             &[
                 "process/zone/command_sync.proto",
+                "process/zone/event_sync.proto",
                 "process/world/service_zone.proto",
             ],
             &["portfolio-proto"],
@@ -30,7 +31,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .type_attribute("SessionId", "#[derive(PartialOrd, Ord)]")
         .compile_protos(
             &[
-                "process/zone/event_sync.proto",
                 "process/world/command_zone.proto",
                 "process/db/record/service.proto",
             ],

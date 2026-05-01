@@ -1,11 +1,12 @@
 use chrono::{TimeZone, offset::LocalResult};
 
 use crate::game::action::action_list_table::ACTION_LIST_TABLE;
+use crate::generated::proto_server::{BroadcastStream, broadcast_stream};
 use crate::zone::command::CommandTrait;
 
 use crate::zone::command::sync_service::broadcast::entity_damaged_command::DamagedEntityCommand;
 use crate::{
-    game::entity::entity::PlayActionOk, generated::proto_client::PayloadPlayAction, zone::zone,
+    game::entity::entity::PlayActionOk, generated::proto_server::PayloadPlayAction, zone::zone,
 };
 
 pub struct StartActionCommand {
@@ -76,23 +77,18 @@ impl CommandTrait for StartActionCommand {
             }
         };
 
-        let clients = zone.gateway_clients().clients_vec();
-
-        let play_action_message = PayloadPlayAction {
+        let payload = PayloadPlayAction {
             id: self.id,
             target_id: self.target_id,
             action_id: self.action_id,
             timestamp: self.timestamp,
         };
 
-        for mut client in clients {
-            let message_clone = play_action_message.clone();
-            tokio::spawn(async move {
-                if let Err(e) = client.play_action(message_clone).await {
-                    log::error!("Failed to send play action message: {}", e);
-                }
-            });
-        }
+        let message = BroadcastStream {
+            payload: Some(broadcast_stream::Payload::PlayAction(payload)),
+        };
+
+        zone.send_broadcast_message(message);
 
         zone.add_zone_command(action_result_command);
     }

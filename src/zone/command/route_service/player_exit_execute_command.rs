@@ -1,6 +1,9 @@
 use tokio::sync::oneshot;
 
-use crate::{generated::proto_client::PayloadZoneExitNotification, zone::command::CommandTrait};
+use crate::{
+    generated::proto_server::{BroadcastStream, PayloadZoneExitNotification, broadcast_stream},
+    zone::command::CommandTrait,
+};
 
 pub struct PlayerExitExecuteCommand {
     player_id: u64,
@@ -32,21 +35,16 @@ impl CommandTrait for PlayerExitExecuteCommand {
             }
         };
 
-        let clients = zone.gateway_clients().clients_vec();
-
-        zone.gateway_clients_mut().on_exit_player(&cluster);
-
-        let message = PayloadZoneExitNotification { id: self.player_id };
+        let entity_id = cluster.entity_id();
 
         let _ = self.tx.send(true);
 
-        for mut client in clients {
-            let message_clone = message.clone();
-            tokio::spawn(async move {
-                if let Err(e) = client.player_exit(message_clone).await {
-                    log::error!("Failed to send player exit message: {}", e);
-                }
-            });
-        }
+        // notification
+        let message = BroadcastStream {
+            payload: Some(broadcast_stream::Payload::PlayerExit(
+                PayloadZoneExitNotification { id: entity_id },
+            )),
+        };
+        zone.send_broadcast_message(message);
     }
 }

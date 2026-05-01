@@ -1,6 +1,3 @@
-use std::sync::Arc;
-
-use dashmap::DashMap;
 use tonic::transport::Endpoint;
 
 use crate::generated::proto_client::{
@@ -10,7 +7,6 @@ use crate::generated::proto_client::{
 
 #[derive(Clone)]
 pub struct BackendClient {
-    pub zone_broadcast_service_clients: Arc<DashMap<u64, tonic::transport::Channel>>,
     #[allow(dead_code)]
     pub world_command_client: WorldCommandClient<tonic::transport::Channel>,
     pub record_player_db_service_client: RecordPlayerDbServiceClient<tonic::transport::Channel>,
@@ -31,7 +27,6 @@ impl BackendClient {
                 .expect("Failed to connect to Record Player DB Service");
 
         BackendClient {
-            zone_broadcast_service_clients: Arc::new(DashMap::new()),
             world_command_client,
             record_player_db_service_client,
         }

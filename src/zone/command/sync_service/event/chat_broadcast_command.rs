@@ -1,6 +1,8 @@
 use crate::zone::command::CommandTrait;
-
-use crate::{generated::proto_client::PayloadTextMessage, zone::zone};
+use crate::{
+    generated::proto_server::{BroadcastStream, PayloadTextMessage, broadcast_stream},
+    zone::zone,
+};
 
 pub struct ChatBroadcastCommand {
     id: u64,
@@ -21,20 +23,14 @@ impl CommandTrait for ChatBroadcastCommand {
             self.message
         );
 
-        let clients = zone.gateway_clients().clients_vec();
-
         let message = PayloadTextMessage {
             id: self.id,
             message: self.message.clone(),
         };
 
-        for mut client in clients {
-            let message_clone = message.clone();
-            tokio::spawn(async move {
-                if let Err(e) = client.send_chat(message_clone).await {
-                    log::error!("Failed to broadcast chat message: {}", e);
-                }
-            });
-        }
+        let message = BroadcastStream {
+            payload: Some(broadcast_stream::Payload::ChatMessage(message)),
+        };
+        zone.send_broadcast_message(message);
     }
 }
