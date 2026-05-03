@@ -28,7 +28,14 @@ pub struct BackendServerChannels {
 
 impl BackendServerChannels {
     pub async fn check_alive_broadcast_all(&self) {
-        self.broadcast_senders.retain(|_, v| !v.is_closed());
+        self.broadcast_senders.retain(|k, v| {
+            if !v.is_closed() {
+                true
+            } else {
+                log::warn!("Removing closed broadcast sender for gateway_id: {}", k,);
+                false
+            }
+        });
     }
 }
 
