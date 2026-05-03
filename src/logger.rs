@@ -10,7 +10,7 @@ pub fn init() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let timestamp = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S").to_string();
-    let log_file_name = format!("world-server_{}.log", timestamp);
+    let log_file_name = format!("zone-server_{}.log", timestamp);
     let log_file_path = log_dir.join(log_file_name);
 
     // コンソール出力の設定

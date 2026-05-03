@@ -26,6 +26,12 @@ pub struct BackendServerChannels {
     pub broadcast_senders: Arc<DashMap<u64, mpsc::Sender<Result<BroadcastStream, tonic::Status>>>>,
 }
 
+impl BackendServerChannels {
+    pub async fn check_alive_broadcast_all(&self) {
+        self.broadcast_senders.retain(|_, v| !v.is_closed());
+    }
+}
+
 pub async fn create_grpc_service(channel_size: usize, port: u16) -> BackendServerChannels {
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), port);
 

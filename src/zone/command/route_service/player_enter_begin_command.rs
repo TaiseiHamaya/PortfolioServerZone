@@ -1,4 +1,5 @@
 use nalgebra::Point3;
+use tokio::sync::oneshot;
 
 use crate::{
     game::entity::player::Player,
@@ -10,13 +11,19 @@ use crate::{
 pub struct PlayerEnterBeginCommand {
     user_id: u64,
     gateway_id: u64,
+    tx: oneshot::Sender<Option<(u64, Point3<f32>)>>,
 }
 
 impl PlayerEnterBeginCommand {
-    pub fn new(user_id: u64, gateway_id: u64) -> Self {
+    pub fn new(
+        user_id: u64,
+        gateway_id: u64,
+        tx: oneshot::Sender<Option<(u64, Point3<f32>)>>,
+    ) -> Self {
         PlayerEnterBeginCommand {
             user_id,
             gateway_id,
+            tx,
         }
     }
 }
@@ -34,6 +41,8 @@ impl CommandTrait for PlayerEnterBeginCommand {
         let gateway_id = self.gateway_id;
 
         let entity_id = zone.next_entity_id();
+
+        let tx = self.tx;
 
         // ロードしてコマンド化するタスク
         let task = async move {
@@ -53,13 +62,18 @@ impl CommandTrait for PlayerEnterBeginCommand {
 
                     // Noneの場合(キャラクリ時はこれ)、デフォルト値にスポーン
                     let position = player_record.position.unwrap_or_default();
+                    let position = Point3::new(position.x, position.y, position.z);
+
+                    if tx.send(Some((entity_id, position))).is_err() {
+                        log::error!(
+                            "Failed to send player enter ready signal for user_id {}",
+                            user_id,
+                        );
+                        return None;
+                    }
 
                     let player = Cluster::new(
-                        Player::new(
-                            entity_id,
-                            Point3::new(position.x, position.y, position.z),
-                            10000,
-                        ),
+                        Player::new(entity_id, position, 10000),
                         player_record.username,
                         user_id,
                         gateway_id,

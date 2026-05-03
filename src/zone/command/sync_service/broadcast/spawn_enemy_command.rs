@@ -21,8 +21,8 @@ impl CommandTrait for SpawnEnemyCommand {
         log::info!("Spawning enemy with ID {}.", self.enemy_id);
 
         let message = PayloadEnemySpawn {
-            id: self.enemy_id,
-            name: "".to_string(),
+            enemy_type_id: self.enemy_id,
+            entity_id: zone.next_entity_id(),
             position: Some(Vector3 {
                 x: 0.0,
                 y: 0.0,

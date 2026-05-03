@@ -1,7 +1,7 @@
 use tokio::sync::{mpsc, oneshot};
 
 use crate::generated::proto_server::{
-    PayloadPlayerZoneEnterCompleteResponse, RoutePlayerData, Vector3,
+    PayloadPlayerZoneEnterReadyResponse, RoutePlayerData, Vector3,
 };
 use crate::zone::command::{CommandBox, route_service::*};
 
@@ -27,20 +27,46 @@ impl WorldRouteService for WorldRouteServiceImpl {
     async fn begin_player_zone_enter(
         &self,
         request: tonic::Request<PayloadPlayerZoneEnterBegin>,
-    ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
+    ) -> std::result::Result<tonic::Response<PayloadPlayerZoneEnterReadyResponse>, tonic::Status>
+    {
         let payload = request.into_inner();
         let user_id = payload.user_id;
         let gateway_id = payload.gateway_id;
+
+        let (tx, rx) = oneshot::channel();
+
         match self
             .command_sender
             .send(Box::new(
-                player_enter_begin_command::PlayerEnterBeginCommand::new(user_id, gateway_id),
+                player_enter_begin_command::PlayerEnterBeginCommand::new(user_id, gateway_id, tx),
             ))
             .await
         {
-            Ok(()) => return Ok(tonic::Response::new(())),
+            Ok(()) => match rx.await {
+                Ok(Some((entity_id, position))) => {
+                    return Ok(tonic::Response::new(PayloadPlayerZoneEnterReadyResponse {
+                        player_data: Some(RoutePlayerData {
+                            player_entity_id: entity_id,
+                            position: Some(Vector3 {
+                                x: position.x,
+                                y: position.y,
+                                z: position.z,
+                            }),
+                        }),
+                    }));
+                }
+                Ok(None) => {
+                    return Ok(tonic::Response::new(PayloadPlayerZoneEnterReadyResponse {
+                        player_data: None,
+                    }));
+                }
+                Err(e) => {
+                    log::error!("Failed to receive PlayerEnterExecuteCommand result: {}", e);
+                    return Err(tonic::Status::internal("Failed to receive command result"));
+                }
+            },
             Err(e) => {
-                log::error!("Failed to send PlayerEnterBeginCommand: {}", e);
+                log::error!("Failed to send PlayerEnterExecuteCommand: {}", e);
                 return Err(tonic::Status::internal("Failed to send command"));
             }
         };
@@ -91,10 +117,13 @@ impl WorldRouteService for WorldRouteServiceImpl {
     async fn execute_enter_zone_player(
         &self,
         request: tonic::Request<PayloadPlayerZoneEnterComplete>,
-    ) -> std::result::Result<tonic::Response<PayloadPlayerZoneEnterCompleteResponse>, tonic::Status>
-    {
+    ) -> std::result::Result<tonic::Response<PayloadPlayerRouteResult>, tonic::Status> {
         let payload = request.into_inner();
         let user_id = payload.user_id;
+        log::info!(
+            "Received execute_enter_zone_player for user_id: {}",
+            user_id
+        );
 
         let (tx, rx) = oneshot::channel();
 
@@ -106,24 +135,15 @@ impl WorldRouteService for WorldRouteServiceImpl {
             .await
         {
             Ok(()) => match rx.await {
-                Ok(Some((entity_id, position))) => {
-                    return Ok(tonic::Response::new(
-                        PayloadPlayerZoneEnterCompleteResponse {
-                            player_data: Some(RoutePlayerData {
-                                player_entity_id: entity_id,
-                                position: Some(Vector3 {
-                                    x: position.x,
-                                    y: position.y,
-                                    z: position.z,
-                                }),
-                            }),
-                        },
-                    ));
-                }
-                Ok(None) => {
-                    return Ok(tonic::Response::new(
-                        PayloadPlayerZoneEnterCompleteResponse { player_data: None },
-                    ));
+                Ok(player_route_result) => {
+                    log::info!(
+                        "PlayerEnterExecuteCommand result for user_id {}: {:?}",
+                        user_id,
+                        player_route_result
+                    );
+                    return Ok(tonic::Response::new(PayloadPlayerRouteResult {
+                        result: player_route_result as i32,
+                    }));
                 }
                 Err(e) => {
                     log::error!("Failed to receive PlayerEnterExecuteCommand result: {}", e);
@@ -207,6 +227,7 @@ impl WorldRouteService for WorldRouteServiceImpl {
     ) -> std::result::Result<tonic::Response<PayloadPlayerRouteResult>, tonic::Status> {
         let payload = request.into_inner();
         let user_id = payload.user_id;
+        log::info!("Received execute_exit_zone_player for user_id: {}", user_id);
 
         let (tx, rx) = oneshot::channel();
 

@@ -11,6 +11,9 @@ use super::entity_id::EntityId;
 pub struct Enemy {
     id: EntityId,
     name: String,
+
+    enemy_type_id: u64,
+
     position: Point3<f32>,
     hitpoint: i32,
     radius: f32,
@@ -23,6 +26,7 @@ impl Enemy {
         Enemy {
             id: EntityId::new(id),
             name: "RedComet".to_string(),
+            enemy_type_id: 0,
             hitpoint: 10000,
             position,
             radius,
@@ -36,6 +40,10 @@ impl Enemy {
 
     pub fn get_name(&self) -> &String {
         &self.name
+    }
+
+    pub fn enemy_type_id(&self) -> u64 {
+        self.enemy_type_id
     }
 }
 

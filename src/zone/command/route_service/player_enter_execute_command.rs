@@ -1,22 +1,21 @@
-use nalgebra::Point3;
 use tokio::sync::oneshot;
 
 use crate::{
     game::entity::entity::Entity,
     generated::proto_server::{
-        BroadcastStream, PayloadClientInitializerData, PayloadZoneEnterNotification, Vector3,
-        broadcast_stream,
+        BroadcastStream, EnemyData, EntityData, PayloadClientInitializerData,
+        PayloadZoneEnterNotification, PlayerData, PlayerRouteResult, Vector3, broadcast_stream,
     },
     zone::command::CommandTrait,
 };
 
 pub struct PlayerEnterExecuteCommand {
     user_id: u64,
-    tx: oneshot::Sender<Option<(u64, Point3<f32>)>>,
+    tx: oneshot::Sender<PlayerRouteResult>,
 }
 
 impl PlayerEnterExecuteCommand {
-    pub fn new(player_id: u64, tx: oneshot::Sender<Option<(u64, Point3<f32>)>>) -> Self {
+    pub fn new(player_id: u64, tx: oneshot::Sender<PlayerRouteResult>) -> Self {
         PlayerEnterExecuteCommand {
             user_id: player_id,
             tx,
@@ -38,7 +37,7 @@ impl CommandTrait for PlayerEnterExecuteCommand {
                     "Player with id {} is not in routeing players when executing PlayerEnterExecuteCommand",
                     self.user_id
                 );
-                let _ = self.tx.send(None);
+                let _ = self.tx.send(PlayerRouteResult::Failed);
                 return;
             }
         };
@@ -53,14 +52,48 @@ impl CommandTrait for PlayerEnterExecuteCommand {
         zone.player_id_by_user_id_mut()
             .insert(self.user_id, entity_id);
 
-        let _ = self.tx.send(Some((entity_id, position)));
+        let _ = self.tx.send(PlayerRouteResult::Success);
 
         // initial data
         let message = BroadcastStream {
             payload: Some(broadcast_stream::Payload::ClientInitializerData(
                 PayloadClientInitializerData {
-                    enemies: vec![],
-                    players: vec![],
+                    enemies: zone
+                        .contains_directors_mut()
+                        .iter()
+                        .flat_map(|director| director.enemies())
+                        .map(|(_, enemy)| EnemyData {
+                            enemy_type_id: enemy.enemy_type_id(),
+                            entity_data: Some(EntityData {
+                                entity_id: enemy.entity_id(),
+                                hp: enemy.hitpoint(),
+                                position: Some(Vector3 {
+                                    x: enemy.position().x,
+                                    y: enemy.position().y,
+                                    z: enemy.position().z,
+                                }),
+                            }),
+                        })
+                        .collect(),
+                    players: zone
+                        .players_mut()
+                        .iter()
+                        .map(|(_, cluster)| {
+                            let player = cluster.player();
+                            PlayerData {
+                                entity_data: Some(EntityData {
+                                    entity_id,
+                                    hp: player.hitpoint(),
+                                    position: Some(Vector3 {
+                                        x: player.position().x,
+                                        y: player.position().y,
+                                        z: player.position().z,
+                                    }),
+                                }),
+                                name: cluster.player_name().clone(),
+                            }
+                        })
+                        .collect(),
                 },
             )),
         };

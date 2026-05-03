@@ -66,6 +66,11 @@ impl Zone {
     }
 
     pub async fn update(&mut self) {
+        // gatewayが切断されたら削除
+        self.backend_server_channels
+            .check_alive_broadcast_all()
+            .await;
+
         // メッセージ処理
         self.execute_messages().await;
 
@@ -237,6 +242,10 @@ impl Zone {
     pub fn player_mut_by_user_id(&mut self, user_id: &u64) -> Option<&mut client::Cluster> {
         let player_id = self.player_id_by_user_id.get(user_id)?;
         self.players.get_mut(player_id)
+    }
+
+    pub fn contains_directors_mut(&mut self) -> &mut Vec<ContaintsDirector> {
+        &mut self.contains_directors
     }
 
     #[allow(unused)]
