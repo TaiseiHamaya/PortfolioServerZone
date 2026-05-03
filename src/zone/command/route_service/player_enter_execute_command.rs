@@ -55,47 +55,53 @@ impl CommandTrait for PlayerEnterExecuteCommand {
         let _ = self.tx.send(PlayerRouteResult::Success);
 
         // initial data
-        let message = BroadcastStream {
-            payload: Some(broadcast_stream::Payload::ClientInitializerData(
-                PayloadClientInitializerData {
-                    enemies: zone
-                        .contains_directors_mut()
-                        .iter()
-                        .flat_map(|director| director.enemies())
-                        .map(|(_, enemy)| EnemyData {
-                            enemy_type_id: enemy.enemy_type_id(),
-                            entity_data: Some(EntityData {
-                                entity_id: enemy.entity_id(),
-                                hp: enemy.hitpoint(),
-                                position: Some(Vector3 {
-                                    x: enemy.position().x,
-                                    y: enemy.position().y,
-                                    z: enemy.position().z,
-                                }),
+        let data = PayloadClientInitializerData {
+            enemies: zone
+                .contains_directors_mut()
+                .iter()
+                .flat_map(|director| director.enemies())
+                .map(|(_, enemy)| EnemyData {
+                    enemy_type_id: enemy.enemy_type_id(),
+                    entity_data: Some(EntityData {
+                        entity_id: enemy.entity_id(),
+                        hp: enemy.hitpoint(),
+                        position: Some(Vector3 {
+                            x: enemy.position().x,
+                            y: enemy.position().y,
+                            z: enemy.position().z,
+                        }),
+                    }),
+                })
+                .collect(),
+            players: zone
+                .players_mut()
+                .iter()
+                .map(|(entity_id, cluster)| {
+                    let player = cluster.player();
+                    PlayerData {
+                        entity_data: Some(EntityData {
+                            entity_id: *entity_id,
+                            hp: player.hitpoint(),
+                            position: Some(Vector3 {
+                                x: player.position().x,
+                                y: player.position().y,
+                                z: player.position().z,
                             }),
-                        })
-                        .collect(),
-                    players: zone
-                        .players_mut()
-                        .iter()
-                        .map(|(_, cluster)| {
-                            let player = cluster.player();
-                            PlayerData {
-                                entity_data: Some(EntityData {
-                                    entity_id,
-                                    hp: player.hitpoint(),
-                                    position: Some(Vector3 {
-                                        x: player.position().x,
-                                        y: player.position().y,
-                                        z: player.position().z,
-                                    }),
-                                }),
-                                name: cluster.player_name().clone(),
-                            }
-                        })
-                        .collect(),
-                },
-            )),
+                        }),
+                        name: cluster.player_name().clone(),
+                    }
+                })
+                .collect(),
+        };
+        log::info!(
+            "Sending ClientInitializerData to gateway_id: {}, user_id: {}, players_count: {}, enemies_count: {}",
+            gateway_id,
+            self.user_id,
+            data.players.len(),
+            data.enemies.len(),
+        );
+        let message = BroadcastStream {
+            payload: Some(broadcast_stream::Payload::ClientInitializerData(data)),
         };
         zone.send_broadcast_message_to_gateway(gateway_id, message);
 
