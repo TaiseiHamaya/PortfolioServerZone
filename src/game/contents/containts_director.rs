@@ -2,13 +2,13 @@ use std::collections::HashMap;
 
 use crate::{
     game::entity::{enemy::Enemy, entity::Entity},
-    zone::command::{CommandTrait, SpawnEnemyCommand},
+    zone::command::{CommandBox, sync_service::broadcast::spawn_enemy_command::SpawnEnemyCommand},
 };
 
 pub struct ContaintsDirector {
     enemies: HashMap<u64, Enemy>,
 
-    commands: Vec<Box<dyn CommandTrait>>,
+    commands: Vec<CommandBox>,
 }
 
 impl ContaintsDirector {
@@ -22,11 +22,11 @@ impl ContaintsDirector {
     pub fn spawn_enemy(&mut self, entity_id: u64) {
         let enemy = Enemy::new(entity_id, nalgebra::Point3::new(0.0, 0.0, 8.0), 1.0);
         self.commands
-            .push(Box::new(SpawnEnemyCommand::new(enemy.id())));
-        self.enemies.insert(enemy.id(), enemy);
+            .push(Box::new(SpawnEnemyCommand::new(enemy.entity_id())));
+        self.enemies.insert(enemy.entity_id(), enemy);
     }
 
-    pub fn take_commands(&mut self) -> Vec<Box<dyn CommandTrait>> {
+    pub fn take_commands(&mut self) -> Vec<CommandBox> {
         std::mem::take(&mut self.commands)
     }
 
@@ -36,7 +36,11 @@ impl ContaintsDirector {
         });
     }
 
-    pub fn get_enemies_mut(&mut self) -> &mut HashMap<u64, Enemy> {
+    pub fn enemies(&self) -> &HashMap<u64, Enemy> {
+        &self.enemies
+    }
+
+    pub fn enemies_mut(&mut self) -> &mut HashMap<u64, Enemy> {
         &mut self.enemies
     }
 }

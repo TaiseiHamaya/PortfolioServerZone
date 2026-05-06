@@ -1,12 +1,19 @@
+use dotenvy::dotenv;
+
 mod app;
+mod ec2_helper;
+mod etcd_client_helper;
 mod game;
+mod generated;
+mod logger;
 mod math;
 mod net;
+mod proto_service;
 mod zone;
 
 #[tokio::main]
 async fn main() {
-    app::log_init::init();
+    logger::init().expect("Failed to initialize logger");
 
     log::info!("Server starting...\n");
 
@@ -17,6 +24,9 @@ async fn main() {
         std::env::consts::OS,
         std::env::consts::ARCH
     );
+
+    log::info!("Loading env variables...");
+    dotenv().ok();
 
     app::framework::run().await;
 }

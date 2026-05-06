@@ -1,10 +1,13 @@
 use nalgebra::Point3;
 
+#[allow(dead_code)]
+#[derive(Debug)]
 pub struct ActionAcquired {
     job_name: String,
     level: u32,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ActionType {
     UNSPECIFIED,
@@ -13,6 +16,7 @@ pub enum ActionType {
     SPELL,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum TargetType {
     MySelf,
@@ -22,6 +26,7 @@ enum TargetType {
     TargetRange,
 }
 
+#[allow(dead_code)]
 enum TargetValue {
     MySelf,
     Player(u64),
@@ -30,6 +35,8 @@ enum TargetValue {
     TargetRange(Point3<f32>, f32),
 }
 
+#[allow(dead_code)]
+#[derive(Debug)]
 pub struct EntityAction {
     id: u32,
     name: String,
@@ -63,22 +70,27 @@ impl EntityAction {
         }
     }
 
+    #[allow(dead_code)]
     pub fn cast_time(&self) -> chrono::TimeDelta {
         self.cast
     }
 
+    #[allow(dead_code)]
     pub fn recast_time(&self) -> chrono::TimeDelta {
         self.recast
     }
 
+    #[allow(dead_code)]
     pub fn action_type(&self) -> ActionType {
         self.action_type
     }
 }
 
+#[allow(dead_code)]
 pub struct CurrentAction {
     id: u32,
     start_time: chrono::DateTime<chrono::Utc>,
 }
 
+#[allow(dead_code)]
 trait EntityActionTrait {}

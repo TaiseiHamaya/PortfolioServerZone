@@ -1,5 +1,6 @@
 use super::action;
 
+#[derive(Debug)]
 pub struct ActionList {
     actions: Vec<action::EntityAction>,
 }
@@ -11,6 +12,7 @@ impl ActionList {
         ActionList { actions }
     }
 
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.actions.len()
     }

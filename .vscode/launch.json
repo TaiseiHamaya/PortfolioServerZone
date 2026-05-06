@@ -4,19 +4,18 @@
 	// 詳細情報は次を確認してください: https://go.microsoft.com/fwlink/?linkid=830387
 	"version": "0.2.0",
 	"configurations": [
-		
 		{
 			"type": "lldb",
 			"request": "launch",
-			"name": "Debug executable 'ZoneServer'",
+			"name": "Debug executable ${workspaceFolderBasename}",
 			"cargo": {
 				"args": [
 					"build",
-					"--bin=ZoneServer",
-					"--package=ZoneServer"
+					"--bin=${workspaceFolderBasename}",
+					"--package=${workspaceFolderBasename}"
 				],
 				"filter": {
-					"name": "ZoneServer",
+					"name": "${workspaceFolderBasename}",
 					"kind": "bin"
 				}
 			},
@@ -26,16 +25,16 @@
 		{
 			"type": "lldb",
 			"request": "launch",
-			"name": "Debug unit tests in executable 'ZoneServer'",
+			"name": "Debug unit tests in executable '${workspaceFolderBasename}'",
 			"cargo": {
 				"args": [
 					"test",
 					"--no-run",
-					"--bin=ZoneServer",
-					"--package=ZoneServer"
+					"--bin=${workspaceFolderBasename}",
+					"--package=${workspaceFolderBasename}"
 				],
 				"filter": {
-					"name": "ZoneServer",
+					"name": "${workspaceFolderBasename}",
 					"kind": "bin"
 				}
 			},

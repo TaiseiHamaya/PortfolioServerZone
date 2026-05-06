@@ -1,5 +1,9 @@
+#![allow(dead_code)]
+
 use chrono;
 use nalgebra::Point3;
+
+use crate::game::action::action_list::ActionList;
 
 use super::entity::{Entity, PlayActionError, PlayActionOk};
 use super::entity_id::EntityId;
@@ -7,6 +11,9 @@ use super::entity_id::EntityId;
 pub struct Enemy {
     id: EntityId,
     name: String,
+
+    enemy_type_id: u64,
+
     position: Point3<f32>,
     hitpoint: i32,
     radius: f32,
@@ -19,6 +26,7 @@ impl Enemy {
         Enemy {
             id: EntityId::new(id),
             name: "RedComet".to_string(),
+            enemy_type_id: 0,
             hitpoint: 10000,
             position,
             radius,
@@ -32,6 +40,10 @@ impl Enemy {
 
     pub fn get_name(&self) -> &String {
         &self.name
+    }
+
+    pub fn enemy_type_id(&self) -> u64 {
+        self.enemy_type_id
     }
 }
 
@@ -60,14 +72,19 @@ impl Entity for Enemy {
         self.radius
     }
 
-    fn id(&self) -> u64 {
+    fn entity_id(&self) -> u64 {
         self.id.id()
     }
+    fn hitpoint(&self) -> i32 {
+        self.hitpoint
+    }
 
+    #[allow(unused_variables)]
     fn play_action(
         &mut self,
         action_id: u32,
         play_utc: &chrono::DateTime<chrono::Utc>,
+        action_list: &ActionList,
     ) -> Result<PlayActionOk, PlayActionError> {
         Ok(PlayActionOk::Damage(0))
     }
